@@ -1,11 +1,10 @@
 <?php
 declare(strict_types=1);
 session_start();
-/**
- * Minimal admin shell with sidebar and content area.
- * Replace this demo gate with a proper login.
- */
-if (empty($_SESSION['admin'])) { $_SESSION['admin'] = true; }
+if (empty($_SESSION['admin'])) {
+    header('Location: /admin/login.php');
+    exit;
+}
 ?><!DOCTYPE html>
 <html lang="de">
 <head>
@@ -25,6 +24,7 @@ if (empty($_SESSION['admin'])) { $_SESSION['admin'] = true; }
         <a href="/admin/files.php">Files</a>
         <a href="/admin/categories.php">Categories</a>
         <a href="/admin/settings.php">Settings</a>
+        <a href="/admin/logout.php">Logout</a>
       </nav>
     </aside>
     <main class="admin-content">
