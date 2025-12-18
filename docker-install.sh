@@ -3,7 +3,8 @@
 # - Starts Docker services (web, db) with build
 # - Waits for MySQL to become ready
 # - ALWAYS imports 01_schema.sql (idempotent: safe to re-run)
-# - Auto-generates config/config.ini from .env
+# - Auto-generates config/config.ini from .env (with real newlines)
+# - Force-sets admin password from .env (fallback admin123)
 # - Prints access URLs and verifies admin user
 #
 # Requirements: Docker + Docker Compose v2 ("docker compose").
@@ -45,6 +46,7 @@ MYSQL_DATABASE="$(get_env MYSQL_DATABASE "blog")"
 MYSQL_USER="$(get_env MYSQL_USER "bloguser")"
 MYSQL_PASSWORD="$(get_env MYSQL_PASSWORD "blogpass")"
 MYSQL_ROOT_PASSWORD="$(get_env MYSQL_ROOT_PASSWORD "changeme-root")"
+ADMIN_PASSWORD="$(get_env ADMIN_PASSWORD "admin123")"
 
 # 1b) Ensure config/config.ini matches .env (write with heredoc so newlines are real)
 CONFIG_DIR="config"
@@ -53,6 +55,7 @@ mkdir -p "$CONFIG_DIR"
 cat > "$CONFIG_INI" <<INI
 [database]
 host=db
+port=3306
 name=${MYSQL_DATABASE}
 user=${MYSQL_USER}
 password=${MYSQL_PASSWORD}
@@ -88,10 +91,19 @@ fi
 echo "[*] Importing schema: $SCHEMA_FILE (idempotent) ..."
 cat "$SCHEMA_FILE" | $COMPOSE exec -T db bash -lc "mysql -u\"$MYSQL_USER\" -p\"$MYSQL_PASSWORD\" \"$MYSQL_DATABASE\""
 
+# 4b) Force-set admin password from .env (fallback admin123)
+echo "[*] Ensuring admin user/password ..."
+HASH="$($COMPOSE exec -T web php -r 'echo password_hash(getenv("P") ?: "admin123", PASSWORD_BCRYPT);' P="$ADMIN_PASSWORD")"
+SQL="INSERT INTO users (username, password_hash, email, role)
+VALUES ('admin', '${HASH}', 'admin@example.com', 'admin')
+ON DUPLICATE KEY UPDATE password_hash=VALUES(password_hash), email=VALUES(email), role=VALUES(role);"
+$COMPOSE exec -T db bash -lc "mysql -u\"$MYSQL_USER\" -p\"$MYSQL_PASSWORD\" -e \"$SQL\" \"$MYSQL_DATABASE\""
+echo "[*] Admin set: username=admin"
+
 # 5) Verify admin user exists
 ADMIN_EXISTS=$($COMPOSE exec -T db bash -lc "mysql -u\"$MYSQL_USER\" -p\"$MYSQL_PASSWORD\" -Nse \"SELECT COUNT(*) FROM users WHERE username='admin';\" \"$MYSQL_DATABASE\"" 2>/dev/null || echo 0)
 if [ "${ADMIN_EXISTS:-0}" -gt 0 ]; then
-  echo "[*] Admin user present. Login should work (admin / admin123)."
+  echo "[*] Admin user present. Login should work (admin / ${ADMIN_PASSWORD})."
 else
   echo "[!] Admin user not found after import. Please check database connection and schema file." >&2
 fi
@@ -105,6 +117,7 @@ Frontend:   ${APP_URL}
 Admin:      ${APP_URL%/}/admin/login.php
 
 MySQL:      host=db  database=${MYSQL_DATABASE}  user=${MYSQL_USER}
+Admin:      user=admin  password=${ADMIN_PASSWORD}
 
 Tip: docker compose logs -f web db
 EOF
