@@ -1,28 +1,66 @@
 <?php
 declare(strict_types=1);
 session_start();
+
 require_once __DIR__ . '/../src/App/Database.php';
 use App\Database;
 
-$ini = parse_ini_file(__DIR__ . '/../config/config.ini', true, INI_SCANNER_TYPED);
-$db  = new Database($ini['database']);
-$pdo = $db->pdo();
+$ini = parse_ini_file(__DIR__ . '/../config/config.ini', true, INI_SCANNER_TYPED) ?: [];
+$dbCfg = $ini['database'] ?? [];
+
+$pdo = null;
+try {
+    if ($dbCfg) {
+        $db  = new Database($dbCfg);
+        $pdo = $db->pdo();
+    }
+} catch (Throwable $e) {
+    // DB optional fürs Login – File-Fallback deckt ab
+}
 
 $error = '';
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $username = trim((string)($_POST['username'] ?? ''));
     $password = (string)($_POST['password'] ?? '');
 
-    $stmt = $pdo->prepare('SELECT * FROM users WHERE username = ? LIMIT 1');
-    $stmt->execute([$username]);
-    $user = $stmt->fetch();
+    $authed = false;
 
-    if ($user && password_verify($password, $user['password_hash'])) {
-        $_SESSION['admin'] = [
-            'id' => (int)$user['id'],
-            'username' => $user['username'],
-            'role' => $user['role'] ?? 'admin',
-        ];
+    // 1) File-based auth (config/admin.ini)
+    $adminIni = __DIR__ . '/../config/admin.ini';
+    if (is_file($adminIni)) {
+        $cfg = parse_ini_file($adminIni, true, INI_SCANNER_TYPED);
+        if (!empty($cfg['admin']['username']) && !empty($cfg['admin']['password_hash'])) {
+            $au = $cfg['admin'];
+            if (hash_equals($au['username'], $username) && password_verify($password, $au['password_hash'])) {
+                $authed = true;
+                $_SESSION['admin'] = [
+                    'id' => 0,
+                    'username' => $au['username'],
+                    'role' => 'admin',
+                    'source' => 'file',
+                ];
+            }
+        }
+    }
+
+    // 2) DB-based auth (nur wenn nicht schon per File authed)
+    if (!$authed && $pdo) {
+        $stmt = $pdo->prepare('SELECT id, username, role, password_hash FROM users WHERE username = ? LIMIT 1');
+        $stmt->execute([$username]);
+        $user = $stmt->fetch();
+        if ($user && password_verify($password, $user['password_hash'])) {
+            $authed = true;
+            $_SESSION['admin'] = [
+                'id' => (int)$user['id'],
+                'username' => $user['username'],
+                'role' => $user['role'] ?? 'admin',
+                'source' => 'db',
+            ];
+        }
+    }
+
+    if ($authed) {
+        session_regenerate_id(true);
         header('Location: /admin/');
         exit;
     } else {
