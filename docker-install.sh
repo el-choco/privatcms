@@ -3,6 +3,7 @@
 # - Starts Docker services (web, db) with build
 # - Waits for MySQL to become ready
 # - ALWAYS imports 01_schema.sql (idempotent: safe to re-run)
+# - Auto-generates config/config.ini from .env
 # - Prints access URLs and verifies admin user
 #
 # Requirements: Docker + Docker Compose v2 ("docker compose").
@@ -44,6 +45,22 @@ MYSQL_DATABASE="$(get_env MYSQL_DATABASE "blog")"
 MYSQL_USER="$(get_env MYSQL_USER "bloguser")"
 MYSQL_PASSWORD="$(get_env MYSQL_PASSWORD "blogpass")"
 MYSQL_ROOT_PASSWORD="$(get_env MYSQL_ROOT_PASSWORD "changeme-root")"
+
+# 1b) Ensure config/config.ini matches .env
+CONFIG_DIR="config"
+CONFIG_INI="$CONFIG_DIR/config.ini"
+mkdir -p "$CONFIG_DIR"
+DESIRED_INI="[database]\nhost=db\nname=${MYSQL_DATABASE}\nuser=${MYSQL_USER}\npassword=${MYSQL_PASSWORD}\ncharset=utf8mb4\n"
+if [ ! -f "$CONFIG_INI" ]; then
+  printf "%s" "$DESIRED_INI" > "$CONFIG_INI"
+  echo "[*] Wrote config/config.ini for DB=${MYSQL_DATABASE}"
+else
+  CURRENT_INI="$(cat "$CONFIG_INI")"
+  if [ "$CURRENT_INI" != "$DESIRED_INI" ]; then
+    printf "%s" "$DESIRED_INI" > "$CONFIG_INI"
+    echo "[*] Updated config/config.ini to match .env"
+  fi
+fi
 
 # 2) Start/rebuild containers
 echo "[*] Starting services (build + up)..."
