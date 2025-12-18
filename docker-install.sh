@@ -3,6 +3,7 @@
 # - Starts Docker services (web, db)
 # - Waits for MySQL to become ready
 # - Imports initial schema if not present
+# - Imports sample seed data if the posts table is empty
 # - Prints access URLs
 #
 # Requirements: Docker + Docker Compose v2 ("docker compose").
@@ -63,23 +64,37 @@ until $COMPOSE exec -T db bash -lc 'mysqladmin ping -h 127.0.0.1 -uroot -p"$MYSQ
 done
 printf "\n"
 
-# 4) Import schema if posts table absent
-set +e
-SCHEMA_CHECK="echo 'SELECT 1 FROM posts LIMIT 1;' | mysql -u\"$MYSQL_USER\" -p\"$MYSQL_PASSWORD\" \"$MYSQL_DATABASE\""
-if ! sh -lc "$SCHEMA_CHECK" >/dev/null 2>&1 < /dev/null; then
-  echo "[*] Importing initial schema..."
-  # Pipe schema file from host into the db container mysql client
+# Small helper to run a query inside the db container
+mysql_exec(){
+  local q="$1"
+  $COMPOSE exec -T db bash -lc 'mysql -u"$MYSQL_USER" -p"$MYSQL_PASSWORD" -Nse '"$q"' "$MYSQL_DATABASE"'
+}
+
+# 4) Ensure schema exists; import if missing
+TABLE_EXISTS=$($COMPOSE exec -T db bash -lc 'mysql -u"$MYSQL_USER" -p"$MYSQL_PASSWORD" -Nse "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema=\"$MYSQL_DATABASE\" AND table_name=\"posts\""' 2>/dev/null || echo 0)
+if [ "${TABLE_EXISTS:-0}" -eq 0 ]; then
+  echo "[*] Importing initial schema (01_schema.sql)..."
   if [ ! -f app/db/mysql/01_schema.sql ]; then
     echo "[!] Schema file app/db/mysql/01_schema.sql not found." >&2
     exit 1
   fi
   cat app/db/mysql/01_schema.sql | $COMPOSE exec -T db bash -lc 'mysql -u"$MYSQL_USER" -p"$MYSQL_PASSWORD" "$MYSQL_DATABASE"'
-else
-  echo "[*] Schema already present. Skipping import."
 fi
-set -e
 
-# 5) Done: print info
+# 5) Seed sample data if posts table empty
+POSTS_COUNT=$(mysql_exec 'SELECT COUNT(*) FROM posts;' 2>/dev/null || echo 0)
+if [ "${POSTS_COUNT:-0}" -eq 0 ]; then
+  if [ -f app/db/mysql/02_seed.sql ]; then
+    echo "[*] Importing sample data (02_seed.sql)..."
+    cat app/db/mysql/02_seed.sql | $COMPOSE exec -T db bash -lc 'mysql -u"$MYSQL_USER" -p"$MYSQL_PASSWORD" "$MYSQL_DATABASE"'
+  else
+    echo "[i] No seed file found (app/db/mysql/02_seed.sql). Skipping sample import."
+  fi
+else
+  echo "[*] Posts already present (${POSTS_COUNT}). Skipping seeds."
+fi
+
+# 6) Done: print info
 cat <<EOF
 
 ✅ PiperBlog is up.
