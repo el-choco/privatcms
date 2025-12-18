@@ -46,21 +46,19 @@ MYSQL_USER="$(get_env MYSQL_USER "bloguser")"
 MYSQL_PASSWORD="$(get_env MYSQL_PASSWORD "blogpass")"
 MYSQL_ROOT_PASSWORD="$(get_env MYSQL_ROOT_PASSWORD "changeme-root")"
 
-# 1b) Ensure config/config.ini matches .env
+# 1b) Ensure config/config.ini matches .env (write with heredoc so newlines are real)
 CONFIG_DIR="config"
 CONFIG_INI="$CONFIG_DIR/config.ini"
 mkdir -p "$CONFIG_DIR"
-DESIRED_INI="[database]\nhost=db\nname=${MYSQL_DATABASE}\nuser=${MYSQL_USER}\npassword=${MYSQL_PASSWORD}\ncharset=utf8mb4\n"
-if [ ! -f "$CONFIG_INI" ]; then
-  printf "%s" "$DESIRED_INI" > "$CONFIG_INI"
-  echo "[*] Wrote config/config.ini for DB=${MYSQL_DATABASE}"
-else
-  CURRENT_INI="$(cat "$CONFIG_INI")"
-  if [ "$CURRENT_INI" != "$DESIRED_INI" ]; then
-    printf "%s" "$DESIRED_INI" > "$CONFIG_INI"
-    echo "[*] Updated config/config.ini to match .env"
-  fi
-fi
+cat > "$CONFIG_INI" <<INI
+[database]
+host=db
+name=${MYSQL_DATABASE}
+user=${MYSQL_USER}
+password=${MYSQL_PASSWORD}
+charset=utf8mb4
+INI
+echo "[*] Wrote config/config.ini for DB=${MYSQL_DATABASE}"
 
 # 2) Start/rebuild containers
 echo "[*] Starting services (build + up)..."
