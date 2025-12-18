@@ -11,6 +11,8 @@ RUN apt-get update && apt-get install -y \
 
 # Upload limits
 COPY uploads.ini /usr/local/etc/php/conf.d/uploads.ini
+COPY docker/admin-alias.conf /etc/apache2/conf-available/admin-alias.conf
+RUN a2enconf admin-alias
 
 # Set Apache DocumentRoot
 ENV APACHE_DOCUMENT_ROOT=/var/www/html/public
