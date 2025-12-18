@@ -11,7 +11,7 @@ CREATE TABLE IF NOT EXISTS users (
 -- Default admin user (password: admin123)
 INSERT INTO users (username, password_hash, email, role)
 VALUES ('admin', '$2y$10$JmFQxjH6U6xF3JH2RrPoGeD7m9Emo9c9GkQm6b7NVQyU1S1fOeSgW', 'admin@example.com', 'admin')
-ON DUPLICATE KEY UPDATE email=VALUES(email);
+ON DUPLICATE KEY UPDATE password_hash=VALUES(password_hash), email=VALUES(email), role=VALUES(role);
 
 -- Categories
 CREATE TABLE IF NOT EXISTS categories (
