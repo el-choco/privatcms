@@ -1,10 +1,9 @@
 #!/usr/bin/env bash
 # docker-install.sh — one-command setup for PiperBlog
-# - Starts Docker services (web, db)
+# - Starts Docker services (web, db) with build
 # - Waits for MySQL to become ready
-# - Imports initial schema if not present
-# - Imports sample seed data if the posts table is empty
-# - Prints access URLs
+# - ALWAYS imports 01_schema.sql (idempotent: safe to re-run)
+# - Prints access URLs and verifies admin user
 #
 # Requirements: Docker + Docker Compose v2 ("docker compose").
 # This script is idempotent and safe to re-run.
@@ -41,13 +40,9 @@ if [ ! -f .env ]; then
 fi
 
 APP_URL="$(get_env APP_URL "http://localhost:3333")"
-MYSQL_DATABASE="$(get_env MYSQL_DATABASE "blog")"
-MYSQL_USER="$(get_env MYSQL_USER "bloguser")"
-MYSQL_PASSWORD="$(get_env MYSQL_PASSWORD "blogpass")"
-MYSQL_ROOT_PASSWORD="$(get_env MYSQL_ROOT_PASSWORD "changeme-root")"
 
-# 2) Start containers
-echo "[*] Starting services..."
+# 2) Start/rebuild containers
+echo "[*] Starting services (build + up)..."
 $COMPOSE up -d --build
 
 # 3) Wait for DB readiness (mysqladmin ping)
@@ -64,34 +59,22 @@ until $COMPOSE exec -T db bash -lc 'mysqladmin ping -h 127.0.0.1 -uroot -p"$MYSQ
 done
 printf "\n"
 
-# Small helper to run a query inside the db container
-mysql_exec(){
-  local q="$1"
-  $COMPOSE exec -T db bash -lc 'mysql -u"$MYSQL_USER" -p"$MYSQL_PASSWORD" -Nse '"$q"' "$MYSQL_DATABASE"'
-}
-
-# 4) Ensure schema exists; import if missing
-TABLE_EXISTS=$($COMPOSE exec -T db bash -lc 'mysql -u"$MYSQL_USER" -p"$MYSQL_PASSWORD" -Nse "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema=\"$MYSQL_DATABASE\" AND table_name=\"posts\""' 2>/dev/null || echo 0)
-if [ "${TABLE_EXISTS:-0}" -eq 0 ]; then
-  echo "[*] Importing initial schema (01_schema.sql)..."
-  if [ ! -f app/db/mysql/01_schema.sql ]; then
-    echo "[!] Schema file app/db/mysql/01_schema.sql not found." >&2
-    exit 1
-  fi
-  cat app/db/mysql/01_schema.sql | $COMPOSE exec -T db bash -lc 'mysql -u"$MYSQL_USER" -p"$MYSQL_PASSWORD" "$MYSQL_DATABASE"'
+# 4) Import schema ALWAYS (idempotent) — creates tables, admin user, seeds
+SCHEMA_FILE="app/db/mysql/01_schema.sql"
+if [ ! -f "$SCHEMA_FILE" ]; then
+  echo "[!] Schema file $SCHEMA_FILE not found." >&2
+  exit 1
 fi
 
-# 5) Seed sample data if posts table empty
-POSTS_COUNT=$(mysql_exec 'SELECT COUNT(*) FROM posts;' 2>/dev/null || echo 0)
-if [ "${POSTS_COUNT:-0}" -eq 0 ]; then
-  if [ -f app/db/mysql/02_seed.sql ]; then
-    echo "[*] Importing sample data (02_seed.sql)..."
-    cat app/db/mysql/02_seed.sql | $COMPOSE exec -T db bash -lc 'mysql -u"$MYSQL_USER" -p"$MYSQL_PASSWORD" "$MYSQL_DATABASE"'
-  else
-    echo "[i] No seed file found (app/db/mysql/02_seed.sql). Skipping sample import."
-  fi
+echo "[*] Importing schema: $SCHEMA_FILE (idempotent) ..."
+cat "$SCHEMA_FILE" | $COMPOSE exec -T db bash -lc 'mysql -u"$MYSQL_USER" -p"$MYSQL_PASSWORD" "$MYSQL_DATABASE"'
+
+# 5) Verify admin user exists
+ADMIN_EXISTS=$($COMPOSE exec -T db bash -lc 'mysql -u"$MYSQL_USER" -p"$MYSQL_PASSWORD" -Nse "SELECT COUNT(*) FROM users WHERE username=\"admin\";" "$MYSQL_DATABASE"' 2>/dev/null || echo 0)
+if [ "${ADMIN_EXISTS:-0}" -gt 0 ]; then
+  echo "[*] Admin user present. Login should work (admin / admin123)."
 else
-  echo "[*] Posts already present (${POSTS_COUNT}). Skipping seeds."
+  echo "[!] Admin user not found after import. Please check database connection and schema file." >&2
 fi
 
 # 6) Done: print info
@@ -100,7 +83,7 @@ cat <<EOF
 ✅ PiperBlog is up.
 
 Frontend:   ${APP_URL}
-Admin:      ${APP_URL%/}/admin/
+Admin:      ${APP_URL%/}/admin/login.php
 
 MySQL:      host=db  database=${MYSQL_DATABASE}  user=${MYSQL_USER}
 
