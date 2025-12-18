@@ -1,0 +1,11 @@
+.git
+.gitignore
+node_modules
+vendor
+tests
+docs
+coverage
+README.md
+.gitkeep
+data/*
+uploads/*

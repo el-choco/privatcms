@@ -1,0 +1,34 @@
+version: "3.9"
+services:
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: piperblog-web
+    ports:
+      - "3333:80"
+    env_file:
+      - .env
+    volumes:
+      - ./public:/var/www/html/public
+      - ./admin:/var/www/html/admin
+      - ./src:/var/www/html/src
+      - ./config:/var/www/html/config
+      - ./uploads:/var/www/html/uploads
+      - ./app:/var/www/html/app
+    depends_on:
+      - db
+  db:
+    image: mysql:8
+    container_name: piperblog-db
+    environment:
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
+      - MYSQL_DATABASE=${MYSQL_DATABASE}
+      - MYSQL_USER=${MYSQL_USER}
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD}
+    ports:
+      - "3334:3306"
+    volumes:
+      - db_data:/var/lib/mysql
+volumes:
+  db_data:

@@ -1,0 +1,8 @@
+:root{ --primary:#1877f2; --surface:#fff; --border:#e5e7eb; --text:#111827; --muted:#6b7280; }
+*{box-sizing:border-box} body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:var(--text);background:#eef2f7}
+.admin-layout{ display:grid; grid-template-columns: 240px 1fr; min-height:100vh; }
+.admin-sidebar{ background:#101828; color:#fff; padding:16px; }
+.admin-sidebar .brand{ margin:0 0 12px; font-size:18px; }
+.admin-sidebar nav a{ display:block; color:#fff; text-decoration:none; padding:8px 10px; border-radius:8px; }
+.admin-sidebar nav a:hover{ background:#172036; }
+.admin-content{ padding:16px; }

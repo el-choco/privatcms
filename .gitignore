@@ -1,0 +1,30 @@
+# Environment
+.env
+.env.local
+
+# Dependencies / build
+vendor/
+node_modules/
+
+# OS / Editors
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# Logs / cache
+storage/
+logs/
+*.log
+
+# Uploads and data (keep dirs)
+uploads/*
+!uploads/.gitkeep
+data/*
+!data/.gitkeep
+
+# Coverage
+coverage/
+
+# Composer lock (optional; add if you commit vendor)
+composer.lock
