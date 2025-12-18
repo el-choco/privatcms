@@ -40,6 +40,10 @@ if [ ! -f .env ]; then
 fi
 
 APP_URL="$(get_env APP_URL "http://localhost:3333")"
+MYSQL_DATABASE="$(get_env MYSQL_DATABASE "blog")"
+MYSQL_USER="$(get_env MYSQL_USER "bloguser")"
+MYSQL_PASSWORD="$(get_env MYSQL_PASSWORD "blogpass")"
+MYSQL_ROOT_PASSWORD="$(get_env MYSQL_ROOT_PASSWORD "changeme-root")"
 
 # 2) Start/rebuild containers
 echo "[*] Starting services (build + up)..."
@@ -48,7 +52,7 @@ $COMPOSE up -d --build
 # 3) Wait for DB readiness (mysqladmin ping)
 echo "[*] Waiting for MySQL to be ready..."
 TRIES=60
-until $COMPOSE exec -T db bash -lc 'mysqladmin ping -h 127.0.0.1 -uroot -p"$MYSQL_ROOT_PASSWORD" --silent' >/dev/null 2>&1; do
+until $COMPOSE exec -T db bash -lc "mysqladmin ping -h 127.0.0.1 -uroot -p\"$MYSQL_ROOT_PASSWORD\" --silent" >/dev/null 2>&1; do
   TRIES=$((TRIES-1)) || true
   if [ "$TRIES" -le 0 ]; then
     echo "[!] MySQL did not become ready in time." >&2
@@ -67,10 +71,10 @@ if [ ! -f "$SCHEMA_FILE" ]; then
 fi
 
 echo "[*] Importing schema: $SCHEMA_FILE (idempotent) ..."
-cat "$SCHEMA_FILE" | $COMPOSE exec -T db bash -lc 'mysql -u"$MYSQL_USER" -p"$MYSQL_PASSWORD" "$MYSQL_DATABASE"'
+cat "$SCHEMA_FILE" | $COMPOSE exec -T db bash -lc "mysql -u\"$MYSQL_USER\" -p\"$MYSQL_PASSWORD\" \"$MYSQL_DATABASE\""
 
 # 5) Verify admin user exists
-ADMIN_EXISTS=$($COMPOSE exec -T db bash -lc 'mysql -u"$MYSQL_USER" -p"$MYSQL_PASSWORD" -Nse "SELECT COUNT(*) FROM users WHERE username=\"admin\";" "$MYSQL_DATABASE"' 2>/dev/null || echo 0)
+ADMIN_EXISTS=$($COMPOSE exec -T db bash -lc "mysql -u\"$MYSQL_USER\" -p\"$MYSQL_PASSWORD\" -Nse \"SELECT COUNT(*) FROM users WHERE username='admin';\" \"$MYSQL_DATABASE\"" 2>/dev/null || echo 0)
 if [ "${ADMIN_EXISTS:-0}" -gt 0 ]; then
   echo "[*] Admin user present. Login should work (admin / admin123)."
 else
