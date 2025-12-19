@@ -15,52 +15,42 @@ try {
         $pdo = $db->pdo();
     }
 } catch (Throwable $e) {
-    // DB optional fürs Login – File-Fallback deckt ab
+    // Wenn die DB nicht erreichbar ist, erzwingen wir Setup.
+}
+
+// Setup-Redirect: bei erstem Start (Flag) oder wenn kein Admin in der DB existiert
+$flag = __DIR__ . '/../config/first_run.flag';
+$needsSetup = is_file($flag);
+if (!$needsSetup && $pdo) {
+    try {
+        $countAdmin = (int)$pdo->query("SELECT COUNT(*) FROM users WHERE username='admin'")->fetchColumn();
+        if ($countAdmin === 0) { $needsSetup = true; }
+    } catch (Throwable $e) {
+        $needsSetup = true;
+    }
+}
+if ($needsSetup) {
+    header('Location: /admin/setup.php');
+    exit;
 }
 
 $error = '';
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && $pdo) {
     $username = trim((string)($_POST['username'] ?? ''));
     $password = (string)($_POST['password'] ?? '');
 
-    $authed = false;
+    $stmt = $pdo->prepare('SELECT id, username, role, password_hash FROM users WHERE username = ? LIMIT 1');
+    $stmt->execute([$username]);
+    $user = $stmt->fetch();
 
-    // 1) File-based auth (config/admin.ini)
-    $adminIni = __DIR__ . '/../config/admin.ini';
-    if (is_file($adminIni)) {
-        $cfg = parse_ini_file($adminIni, true, INI_SCANNER_TYPED);
-        if (!empty($cfg['admin']['username']) && !empty($cfg['admin']['password_hash'])) {
-            $au = $cfg['admin'];
-            if (hash_equals($au['username'], $username) && password_verify($password, $au['password_hash'])) {
-                $authed = true;
-                $_SESSION['admin'] = [
-                    'id' => 0,
-                    'username' => $au['username'],
-                    'role' => 'admin',
-                    'source' => 'file',
-                ];
-            }
-        }
-    }
-
-    // 2) DB-based auth (nur wenn nicht schon per File authed)
-    if (!$authed && $pdo) {
-        $stmt = $pdo->prepare('SELECT id, username, role, password_hash FROM users WHERE username = ? LIMIT 1');
-        $stmt->execute([$username]);
-        $user = $stmt->fetch();
-        if ($user && password_verify($password, $user['password_hash'])) {
-            $authed = true;
-            $_SESSION['admin'] = [
-                'id' => (int)$user['id'],
-                'username' => $user['username'],
-                'role' => $user['role'] ?? 'admin',
-                'source' => 'db',
-            ];
-        }
-    }
-
-    if ($authed) {
+    if ($user && password_verify($password, $user['password_hash'])) {
         session_regenerate_id(true);
+        $_SESSION['admin'] = [
+            'id' => (int)$user['id'],
+            'username' => $user['username'],
+            'role' => $user['role'] ?? 'admin',
+            'source' => 'db',
+        ];
         header('Location: /admin/');
         exit;
     } else {
@@ -91,6 +81,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       <input class="input" type="password" name="password" placeholder="Passwort" required>
       <button class="btn" type="submit">Login</button>
     </form>
+    <p style="margin-top:10px"><a href="/admin/setup.php">Passwort neu setzen</a></p>
   </div>
 </body>
 </html>
