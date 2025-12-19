@@ -1,66 +1,43 @@
 <?php
 declare(strict_types=1);
 session_start();
-
-if (empty($_SESSION['admin'])) {
-    header('Location: /admin/login.php');
-    exit;
-}
+if (empty($_SESSION['admin'])) { header('Location: /admin/login.php'); exit; }
 
 require_once __DIR__ . '/../src/App/Database.php';
+require_once __DIR__ . '/../src/App/I18n.php';
 use App\Database;
+use App\I18n;
 
 $ini = parse_ini_file(__DIR__ . '/../config/config.ini', true, INI_SCANNER_TYPED) ?: [];
+$langOverride = isset($_GET['lang']) ? (string)$_GET['lang'] : null;
+$i18n = I18n::fromConfig($ini, $langOverride);
+
 $dbCfg = $ini['database'] ?? [];
+$pdo = (new Database($dbCfg))->pdo();
 
-$pdo = null;
-try {
-    $db  = new Database($dbCfg);
-    $pdo = $db->pdo();
-} catch (Throwable $e) {
-    http_response_code(500);
-    echo '<pre style="padding:16px">DB-Verbindung fehlgeschlagen. Bitte Installer/Config prüfen.\n' . htmlspecialchars($e->getMessage()) . '</pre>';
-    exit;
-}
-
-// Stats
 $stats = [
-    'posts_total'      => 0,
-    'posts_published'  => 0,
-    'posts_drafts'     => 0,
+    'posts_total'      => (int)$pdo->query("SELECT COUNT(*) FROM posts")->fetchColumn(),
+    'posts_published'  => (int)$pdo->query("SELECT COUNT(*) FROM posts WHERE status='published'")->fetchColumn(),
+    'posts_drafts'     => (int)$pdo->query("SELECT COUNT(*) FROM posts WHERE status='draft'")->fetchColumn(),
     'comments_total'   => 0,
     'categories_total' => 0,
     'users_total'      => 0,
 ];
-
-$stats['posts_total']      = (int)$pdo->query("SELECT COUNT(*) FROM posts")->fetchColumn();
-$stats['posts_published']  = (int)$pdo->query("SELECT COUNT(*) FROM posts WHERE status='published'")->fetchColumn();
-// Drafts: falls kein Status 'draft' existiert, bleibt Wert ggf. 0 – ist OK
-$stats['posts_drafts']     = (int)$pdo->query("SELECT COUNT(*) FROM posts WHERE status='draft'")->fetchColumn();
-
-// Optional-Tabellen robust zählen
-try { $stats['comments_total']   = (int)$pdo->query("SELECT COUNT(*) FROM comments")->fetchColumn(); } catch (Throwable $e) {}
-try { $stats['categories_total'] = (int)$pdo->query("SELECT COUNT(*) FROM categories")->fetchColumn(); } catch (Throwable $e) {}
-try { $stats['users_total']      = (int)$pdo->query("SELECT COUNT(*) FROM users")->fetchColumn(); } catch (Throwable $e) {}
-
-// Letzte Beiträge
+foreach (['comments_total' => 'comments', 'categories_total' => 'categories', 'users_total' => 'users'] as $k => $tbl) {
+    try { $stats[$k] = (int)$pdo->query("SELECT COUNT(*) FROM {$tbl}")->fetchColumn(); } catch (Throwable $e) {}
+}
 $latestPosts = [];
 try {
-    $stmt = $pdo->query(
-        "SELECT id, title, status, created_at FROM posts ORDER BY created_at DESC LIMIT 8"
-    );
+    $stmt = $pdo->query("SELECT id, title, status, created_at FROM posts ORDER BY created_at DESC LIMIT 8");
     $latestPosts = $stmt->fetchAll();
-} catch (Throwable $e) {
-    $latestPosts = [];
-}
-
+} catch (Throwable $e) {}
 $admin = $_SESSION['admin'] ?? ['username' => 'admin'];
 ?>
 <!DOCTYPE html>
-<html lang="de">
+<html lang="<?= htmlspecialchars($i18n->locale()) ?>">
 <head>
   <meta charset="utf-8">
-  <title>Dashboard – PiperBlog Admin</title>
+  <title><?= htmlspecialchars($i18n->t('dashboard.title')) ?> – PiperBlog Admin</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <link href="/admin/assets/styles/admin.css" rel="stylesheet">
   <style>
@@ -87,47 +64,47 @@ $admin = $_SESSION['admin'] ?? ['username' => 'admin'];
     <aside class="admin-sidebar">
       <h2 class="brand">Admin</h2>
       <nav>
-        <a href="/admin/dashboard.php">Dashboard</a>
-        <a href="/admin/posts.php">Posts</a>
-        <a href="/admin/comments.php">Comments</a>
-        <a href="/admin/files.php">Files</a>
-        <a href="/admin/categories.php">Categories</a>
-        <a href="/admin/settings.php">Settings</a>
-        <a href="/admin/logout.php">Logout</a>
+        <a href="/admin/dashboard.php"><?= htmlspecialchars($i18n->t('dashboard.title')) ?></a>
+        <a href="/admin/posts.php"><?= htmlspecialchars($i18n->t('dashboard.quick_manage_posts')) ?></a>
+        <a href="/admin/comments.php"><?= htmlspecialchars($i18n->t('dashboard.quick_comments')) ?></a>
+        <a href="/admin/files.php"><?= htmlspecialchars($i18n->t('dashboard.quick_files')) ?></a>
+        <a href="/admin/categories.php"><?= htmlspecialchars($i18n->t('dashboard.quick_categories')) ?></a>
+        <a href="/admin/settings.php"><?= htmlspecialchars($i18n->t('dashboard.quick_settings')) ?></a>
+        <a href="/admin/logout.php"><?= htmlspecialchars($i18n->t('common.logout')) ?></a>
       </nav>
     </aside>
     <main class="admin-content">
-      <h1 style="margin-top:0">Dashboard</h1>
-      <p class="muted">Angemeldet als <?= htmlspecialchars((string)($admin['username'] ?? 'admin')) ?></p>
+      <h1 style="margin-top:0"><?= htmlspecialchars($i18n->t('dashboard.title')) ?></h1>
+      <p class="muted"><?= htmlspecialchars($i18n->t('dashboard.logged_in_as', ['{user}' => (string)($admin['username'] ?? 'admin')])) ?></p>
 
       <section class="cards">
-        <div class="card"><div class="muted">Beiträge gesamt</div><div class="metric"><?= $stats['posts_total'] ?></div></div>
-        <div class="card"><div class="muted">Veröffentlicht</div><div class="metric"><?= $stats['posts_published'] ?></div></div>
-        <div class="card"><div class="muted">Entwürfe</div><div class="metric"><?= $stats['posts_drafts'] ?></div></div>
-        <div class="card"><div class="muted">Kommentare</div><div class="metric"><?= $stats['comments_total'] ?></div></div>
-        <div class="card"><div class="muted">Kategorien</div><div class="metric"><?= $stats['categories_total'] ?></div></div>
-        <div class="card"><div class="muted">Benutzer</div><div class="metric"><?= $stats['users_total'] ?></div></div>
+        <div class="card"><div class="muted"><?= htmlspecialchars($i18n->t('dashboard.cards_posts_total')) ?></div><div class="metric"><?= $stats['posts_total'] ?></div></div>
+        <div class="card"><div class="muted"><?= htmlspecialchars($i18n->t('dashboard.cards_published')) ?></div><div class="metric"><?= $stats['posts_published'] ?></div></div>
+        <div class="card"><div class="muted"><?= htmlspecialchars($i18n->t('dashboard.cards_drafts')) ?></div><div class="metric"><?= $stats['posts_drafts'] ?></div></div>
+        <div class="card"><div class="muted"><?= htmlspecialchars($i18n->t('dashboard.cards_comments')) ?></div><div class="metric"><?= $stats['comments_total'] ?></div></div>
+        <div class="card"><div class="muted"><?= htmlspecialchars($i18n->t('dashboard.cards_categories')) ?></div><div class="metric"><?= $stats['categories_total'] ?></div></div>
+        <div class="card"><div class="muted"><?= htmlspecialchars($i18n->t('dashboard.cards_users')) ?></div><div class="metric"><?= $stats['users_total'] ?></div></div>
       </section>
 
       <div class="grid">
         <section class="panel">
-          <h3>Neueste Beiträge</h3>
+          <h3><?= htmlspecialchars($i18n->t('dashboard.panel_latest_posts')) ?></h3>
           <?php if (empty($latestPosts)): ?>
-            <p class="muted">Keine Beiträge gefunden.</p>
+            <p class="muted"><?= htmlspecialchars($i18n->t('dashboard.no_posts')) ?></p>
           <?php else: ?>
             <ul class="list">
               <?php foreach ($latestPosts as $p): ?>
                 <li>
                   <span>
                     <strong>#<?= (int)$p['id'] ?></strong>
-                    <?= htmlspecialchars((string)$p['title'] ?? '') ?>
+                    <?= htmlspecialchars((string)($p['title'] ?? '')) ?>
                   </span>
                   <span>
                     <span class="badge"><?= htmlspecialchars((string)($p['status'] ?? '')) ?></span>
                     <span class="muted" style="margin-left:8px;">
-                      <?= htmlspecialchars(date('d.m.Y', strtotime((string)$p['created_at']))) ?>
+                      <?= htmlspecialchars(date($i18n->t('dashboard.date_fmt'), strtotime((string)$p['created_at']))) ?>
                     </span>
-                    <a class="btn" style="margin-left:10px" href="/article.php?id=<?= (int)$p['id'] ?>">Öffnen</a>
+                    <a class="btn" style="margin-left:10px" href="/article.php?id=<?= (int)$p['id'] ?>"><?= htmlspecialchars($i18n->t('dashboard.button_open')) ?></a>
                   </span>
                 </li>
               <?php endforeach; ?>
@@ -136,14 +113,14 @@ $admin = $_SESSION['admin'] ?? ['username' => 'admin'];
         </section>
 
         <section class="panel">
-          <h3>Schnellzugriff</h3>
+          <h3><?= htmlspecialchars($i18n->t('dashboard.panel_quick')) ?></h3>
           <div class="quick">
-            <a href="/admin/post-create.php">+ Neuer Beitrag</a>
-            <a href="/admin/posts.php">Beiträge verwalten</a>
-            <a href="/admin/comments.php">Kommentare</a>
-            <a href="/admin/files.php">Dateien</a>
-            <a href="/admin/categories.php">Kategorien</a>
-            <a href="/admin/settings.php">Einstellungen</a>
+            <a href="/admin/post-create.php"><?= htmlspecialchars($i18n->t('dashboard.quick_new_post')) ?></a>
+            <a href="/admin/posts.php"><?= htmlspecialchars($i18n->t('dashboard.quick_manage_posts')) ?></a>
+            <a href="/admin/comments.php"><?= htmlspecialchars($i18n->t('dashboard.quick_comments')) ?></a>
+            <a href="/admin/files.php"><?= htmlspecialchars($i18n->t('dashboard.quick_files')) ?></a>
+            <a href="/admin/categories.php"><?= htmlspecialchars($i18n->t('dashboard.quick_categories')) ?></a>
+            <a href="/admin/settings.php"><?= htmlspecialchars($i18n->t('dashboard.quick_settings')) ?></a>
           </div>
         </section>
       </div>
