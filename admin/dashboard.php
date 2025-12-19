@@ -124,8 +124,10 @@ $admin = $_SESSION['admin'] ?? ['username' => 'admin'];
                   </span>
                   <span>
                     <span class="badge"><?= htmlspecialchars((string)($p['status'] ?? '')) ?></span>
-                    <span class="muted" style="margin-left:8px;"><?= htmlspecialchars(date('d.m.Y', strtotime((string)$p['created_at']))) ?></span>
-                    <a class="btn" style="margin-left:10px" href="/admin/post-edit.php?id=<?= (int)$p['id'] ?>">Öffnen</a>
+                    <span class="muted" style="margin-left:8px;">
+                      <?= htmlspecialchars(date('d.m.Y', strtotime((string)$p['created_at']))) ?>
+                    </span>
+                    <a class="btn" style="margin-left:10px" href="/article.php?id=<?= (int)$p['id'] ?>">Öffnen</a>
                   </span>
                 </li>
               <?php endforeach; ?>
