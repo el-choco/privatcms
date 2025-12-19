@@ -63,6 +63,12 @@ charset=utf8mb4
 INI
 echo "[*] Wrote config/config.ini for DB=${MYSQL_DATABASE}"
 
+# Ensure permissions on host (group and mode)
+if getent group www-data >/dev/null 2>&1; then
+  chgrp www-data "$CONFIG_INI" || true
+fi
+chmod 664 "$CONFIG_INI" || true
+
 # 2) Start/rebuild containers
 echo "[*] Starting services (build + up)..."
 $COMPOSE up -d --build
@@ -81,17 +87,16 @@ until $COMPOSE exec -T db bash -lc "mysqladmin ping -h 127.0.0.1 -uroot -p\"$MYS
 done
 printf "\n"
 
-# 4) Import schema ALWAYS (idempotent) — creates tables, admin user, seeds
+# 4) Import schema (idempotent)
 SCHEMA_FILE="app/db/mysql/01_schema.sql"
 if [ ! -f "$SCHEMA_FILE" ]; then
   echo "[!] Schema file $SCHEMA_FILE not found." >&2
   exit 1
 fi
-
 echo "[*] Importing schema: $SCHEMA_FILE (idempotent) ..."
 cat "$SCHEMA_FILE" | $COMPOSE exec -T db bash -lc "mysql -u\"$MYSQL_USER\" -p\"$MYSQL_PASSWORD\" \"$MYSQL_DATABASE\""
 
-# 4b) Force-set admin password from .env (fallback admin123)
+# 4a) Ensure admin user/password from .env (fallback admin123)
 echo "[*] Ensuring admin user/password ..."
 HASH="$($COMPOSE exec -T web php -r 'echo password_hash(getenv("P") ?: "admin123", PASSWORD_BCRYPT);' P="$ADMIN_PASSWORD")"
 SQL="INSERT INTO users (username, password_hash, email, role)
@@ -100,7 +105,21 @@ ON DUPLICATE KEY UPDATE password_hash=VALUES(password_hash), email=VALUES(email)
 $COMPOSE exec -T db bash -lc "mysql -u\"$MYSQL_USER\" -p\"$MYSQL_PASSWORD\" -e \"$SQL\" \"$MYSQL_DATABASE\""
 echo "[*] Admin set: username=admin"
 
-# 5) Verify admin user exists
+# 4b) Ensure config directory is writable inside web container (bind mount)
+if $COMPOSE ps --services | grep -q '^web$'; then
+  echo "[*] Ensuring /var/www/html/config is writable in web container..."
+  $COMPOSE exec -T web sh -lc '
+    set -e
+    CONF_DIR=/var/www/html/config
+    if id -u www-data >/dev/null 2>&1; then
+      chown -R www-data:www-data "$CONF_DIR" || true
+    fi
+    find "$CONF_DIR" -type d -exec chmod 775 {} \; || true
+    find "$CONF_DIR" -type f -exec chmod 664 {} \; || true
+  ' || true
+fi
+
+# 5) Verify admin exists
 ADMIN_EXISTS=$($COMPOSE exec -T db bash -lc "mysql -u\"$MYSQL_USER\" -p\"$MYSQL_PASSWORD\" -Nse \"SELECT COUNT(*) FROM users WHERE username='admin';\" \"$MYSQL_DATABASE\"" 2>/dev/null || echo 0)
 if [ "${ADMIN_EXISTS:-0}" -gt 0 ]; then
   echo "[*] Admin user present. Login should work (admin / ${ADMIN_PASSWORD})."
@@ -111,13 +130,13 @@ fi
 # 6) Done: print info
 cat <<EOF
 
-✅ PiperBlog is up.
+✅ PiperBlog ist up.
 
-Frontend:   ${APP_URL}
-Admin:      ${APP_URL%/}/admin/login.php
+Frontend:  ${APP_URL}
+Admin:     ${APP_URL}/admin/login.php
 
-MySQL:      host=db  database=${MYSQL_DATABASE}  user=${MYSQL_USER}
-Admin:      user=admin  password=${ADMIN_PASSWORD}
+MySQL:     host=db  database=${MYSQL_DATABASE}  user=${MYSQL_USER}
+Admin:     user=admin  password=${ADMIN_PASSWORD}
 
-Tip: docker compose logs -f web db
+Tipp: docker compose logs -f web db
 EOF
