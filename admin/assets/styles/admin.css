@@ -9,6 +9,12 @@ body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-ser
 .admin-sidebar nav a:hover{ background:#172036; }
 .admin-content{ padding:16px; }
 
+/* Topbar (title + language switch) */
+.topbar{display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:12px}
+.lang-switch{display:flex; gap:6px; align-items:center}
+.lang-switch a{display:inline-flex; align-items:center; justify-content:center; padding:6px 10px; border:1px solid var(--border); border-radius:999px; background:#fff; color:var(--text); text-decoration:none; font-size:12px}
+.lang-switch a.active{background:#f5f8ff; color:var(--primary); border-color:#cfe0ff}
+
 /* Forms (Login/Setup) */
 .login-card{max-width:520px;margin:60px auto;background:#fff;border:1px solid var(--border);border-radius:12px;padding:22px}
 .input{display:block;width:100%;padding:12px 12px;border:1px solid var(--border);border-radius:8px;margin-bottom:12px;background:#fff}
