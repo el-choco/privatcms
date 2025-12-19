@@ -62,7 +62,6 @@ CREATE TABLE IF NOT EXISTS files (
 
 -- -----------------------------------------------------------------
 -- Seed data (sample categories, posts, comments)
--- This block is idempotent (INSERT IGNORE or ON DUPLICATE KEY UPDATE)
 -- -----------------------------------------------------------------
 START TRANSACTION;
 

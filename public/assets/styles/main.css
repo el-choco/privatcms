@@ -19,3 +19,7 @@ body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-ser
 .article-hero{width:100%;display:block;border-radius:12px;margin:8px 0}
 .article-body{line-height:1.65}
 .input{display:block;width:100%;padding:8px;border:1px solid var(--border);border-radius:8px;background:var(--surface)}
+.article-body h1 { font-size: 2rem; margin-bottom: 1rem; }
+.article-body h2 { font-size: 1.5rem; margin-top: 1.5rem; }
+.article-body ul { padding-left: 20px; margin-bottom: 1rem; }
+.article-body p { margin-bottom: 1rem; line-height: 1.6; }

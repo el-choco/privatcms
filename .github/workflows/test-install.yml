@@ -1,0 +1,32 @@
+name: Test Installation
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  test-setup:
+    runs-with: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Create .env from example
+        run: cp .env.example .env || touch .env
+
+      - name: Make install script executable
+        run: chmod +x docker-install.sh
+
+      - name: Run Installation Script
+        run: ./docker-install.sh
+
+      - name: Verify Web Container is running
+        run: docker compose ps | grep "web"
+
+      - name: Check Permissions inside container
+        run: |
+          docker compose exec -T web ls -la /var/www/html/public/uploads
+          docker compose exec -T web ls -la /var/www/html/config
