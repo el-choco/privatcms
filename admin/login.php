@@ -15,10 +15,10 @@ try {
         $pdo = $db->pdo();
     }
 } catch (Throwable $e) {
-    // Wenn die DB nicht erreichbar ist, erzwingen wir Setup.
+    // Wenn die DB nicht erreichbar ist, empfehlen wir Setup.
 }
 
-// Setup-Redirect: bei erstem Start (Flag) oder wenn kein Admin in der DB existiert
+// Setup-Erkennung: bei erstem Start (Flag) oder wenn kein Admin in der DB existiert
 $flag = __DIR__ . '/../config/first_run.flag';
 $needsSetup = is_file($flag);
 if (!$needsSetup && $pdo) {
@@ -26,16 +26,12 @@ if (!$needsSetup && $pdo) {
         $countAdmin = (int)$pdo->query("SELECT COUNT(*) FROM users WHERE username='admin'")->fetchColumn();
         if ($countAdmin === 0) { $needsSetup = true; }
     } catch (Throwable $e) {
-        $needsSetup = true;
+        $needsSetup = true; // wenn DB nicht lesbar, Setup empfehlen
     }
-}
-if ($needsSetup) {
-    header('Location: /admin/setup.php');
-    exit;
 }
 
 $error = '';
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && $pdo) {
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && $pdo && !$needsSetup) {
     $username = trim((string)($_POST['username'] ?? ''));
     $password = (string)($_POST['password'] ?? '');
 
@@ -66,21 +62,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $pdo) {
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <link href="/admin/assets/styles/admin.css" rel="stylesheet">
   <style>
-    .login-card{max-width:420px;margin:60px auto;background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:20px}
+    .login-card{max-width:480px;margin:60px auto;background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:20px}
     .input{display:block;width:100%;padding:10px;border:1px solid #e5e7eb;border-radius:8px;margin-bottom:10px}
     .btn{display:inline-block;padding:10px 14px;border-radius:8px;background:#1877f2;color:#fff;border:0}
     .error{color:#b91c1c;margin-bottom:12px}
+    .notice{background:#FEF3C7;border:1px solid #F59E0B;color:#92400E;padding:12px;border-radius:8px;margin-bottom:12px}
   </style>
 </head>
 <body>
   <div class="login-card">
     <h1>Admin Login</h1>
+
+    <?php if ($needsSetup): ?>
+      <div class="notice">
+        <strong>Ersteinrichtung erforderlich.</strong> Bitte lege zunächst ein Passwort für den Benutzer <em>admin</em> fest.
+        <div style="margin-top:8px"><a class="btn" href="/admin/setup.php">Setup starten</a></div>
+      </div>
+    <?php endif; ?>
+
     <?php if ($error): ?><div class="error"><?= htmlspecialchars($error) ?></div><?php endif; ?>
+
     <form method="post" action="/admin/login.php">
-      <input class="input" type="text" name="username" placeholder="Benutzername" required>
-      <input class="input" type="password" name="password" placeholder="Passwort" required>
-      <button class="btn" type="submit">Login</button>
+      <input class="input" type="text" name="username" placeholder="Benutzername" required <?php if ($needsSetup) echo 'disabled'; ?>>
+      <input class="input" type="password" name="password" placeholder="Passwort" required <?php if ($needsSetup) echo 'disabled'; ?>>
+      <button class="btn" type="submit" <?php if ($needsSetup) echo 'disabled'; ?>>Login</button>
     </form>
+
     <p style="margin-top:10px"><a href="/admin/setup.php">Passwort neu setzen</a></p>
   </div>
 </body>
