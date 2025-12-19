@@ -42,7 +42,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } else {
         $lang = strtolower((string)($_POST['lang'] ?? ''));
         if (!isset($available[$lang])) {
-            $error = 'Unsupported language';
+            $error = $i18n->t('settings.error_unsupported');
         } else {
             $_SESSION['lang'] = $lang;
             $i18n->setLocale($lang);
