@@ -25,7 +25,10 @@ foreach (['comments_total' => 'comments', 'categories_total' => 'categories', 'u
     try { $stats[$k] = (int)$pdo->query("SELECT COUNT(*) FROM {$tbl}")->fetchColumn(); } catch (Throwable $e) {}
 }
 $latestPosts = [];
-try { $latestPosts = $pdo->query("SELECT id, title, status, created_at FROM posts ORDER BY created_at DESC LIMIT 8")->fetchAll(); } catch (Throwable $e) {}
+try {
+    $stmt = $pdo->query("SELECT id, title, status, created_at FROM posts ORDER BY created_at DESC LIMIT 8");
+    $latestPosts = $stmt->fetchAll();
+} catch (Throwable $e) {}
 $admin = $_SESSION['admin'] ?? ['username' => 'admin'];
 
 function svg($name, $cls='icon-18') {
@@ -40,12 +43,17 @@ function svg($name, $cls='icon-18') {
     'new' => '<path d="M12 5v14M5 12h14" />',
     'manage' => '<path d="M4 6h16M4 12h10M4 18h16" />',
     'file' => '<path d="M14 3H6a2 2 0 0 0-2 2v14l4-2 4 2 4-2 4 2V9z" fill="none"/>',
-    'settings' => '<path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06-.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06A2 2 0 1 1 7.04 3.3l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9c0 .67.39 1.27 1 1.51.64.26 1.09.88 1.09 1.6s-.45 1.34-1.09 1.6c-.61 .24-1 .84-1 1.29z" fill="none"/>',
+    'settings' => '<path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06-.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06A2 2 0 1 1 7.04 3.3l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a2 2 0 0 0-.33 1.82V9c0 .67.39 1.27 1 1.51.64 .26 1.09 .88 1.09 1.6s-.45 1.34-1.09 1.6c-.61 .24-1 .84-1 1.29z" fill="none"/>',
     'tags' => '<path d="M20 10V4h-6l-8 8 6 6 8-8z"/><circle cx="14" cy="6" r="1"/>',
-    'comments2' => '<path d="M21 15a4 4 0 0 1-4 4H7l-4 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z" fill="none"/>'
+    'comments2' => '<path d="M21 15a4 4 0 0 1-4 4H7l-4 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z" fill="none"/>',
   ];
   $path = $icons[$name] ?? '';
   return '<svg class="'.$cls.'" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1.5" aria-hidden="true">'.$path.'</svg>';
+}
+
+function fmtDate(I18n $i18n, string $ts): string {
+  $fmt = $i18n->t('common.date_fmt');
+  return date($fmt ?: 'd.m.Y', strtotime($ts));
 }
 ?>
 <!DOCTYPE html>
@@ -61,79 +69,33 @@ function svg($name, $cls='icon-18') {
     <aside class="admin-sidebar">
       <h2 class="brand">Admin</h2>
       <nav>
-        <a href="/admin/dashboard.php"><?= htmlspecialchars($i18n->t('dashboard.title')) ?></a>
-        <a href="/admin/posts.php"><?= htmlspecialchars($i18n->t('dashboard.quick_manage_posts')) ?></a>
-        <a href="/admin/comments.php"><?= htmlspecialchars($i18n->t('dashboard.quick_comments')) ?></a>
-        <a href="/admin/files.php"><?= htmlspecialchars($i18n->t('dashboard.quick_files')) ?></a>
-        <a href="/admin/categories.php"><?= htmlspecialchars($i18n->t('dashboard.quick_categories')) ?></a>
-        <a href="/admin/settings.php"><?= htmlspecialchars($i18n->t('dashboard.quick_settings')) ?></a>
-        <a href="/admin/logout.php"><?= htmlspecialchars($i18n->t('common.logout')) ?></a>
+        <a href="/admin/dashboard.php"><?= htmlspecialchars($i18n->t('nav.dashboard')) ?></a>
+        <a href="/admin/posts.php"><?= htmlspecialchars($i18n->t('nav.posts')) ?></a>
+        <a href="/admin/comments.php"><?= htmlspecialchars($i18n->t('nav.comments')) ?></a>
+        <a href="/admin/files.php"><?= htmlspecialchars($i18n->t('nav.files')) ?></a>
+        <a href="/admin/categories.php"><?= htmlspecialchars($i18n->t('nav.categories')) ?></a>
+        <a href="/admin/settings.php"><?= htmlspecialchars($i18n->t('nav.settings')) ?></a>
+        <a href="/admin/logout.php"><?= htmlspecialchars($i18n->t('nav.logout')) ?></a>
       </nav>
     </aside>
     <main class="admin-content">
-      <h1 style="margin-top:0"><?= htmlspecialchars($i18n->t('dashboard.title')) ?></h1>
+      <div class="topbar">
+        <h1 style="margin:0"><?= htmlspecialchars($i18n->t('dashboard.title')) ?></h1>
+        <div class="lang-switch">
+          <?php $cur = $i18n->locale(); ?>
+          <a href="?lang=de" class="<?= $cur==='de'?'active':'' ?>">DE</a>
+          <a href="?lang=en" class="<?= $cur==='en'?'active':'' ?>">EN</a>
+        </div>
+      </div>
       <p class="muted"><?= htmlspecialchars($i18n->t('dashboard.logged_in_as', ['{user}' => (string)($admin['username'] ?? 'admin')])) ?></p>
 
       <section class="cards">
-        <div class="card">
-          <div class="kpi">
-            <div class="kpi-icon"><?= svg('posts') ?></div>
-            <div>
-              <div class="muted"><?= htmlspecialchars($i18n->t('dashboard.cards_posts_total')) ?></div>
-              <div class="metric"><?= $stats['posts_total'] ?></div>
-            </div>
-          </div>
-        </div>
-
-        <div class="card">
-          <div class="kpi">
-            <div class="kpi-icon"><?= svg('published') ?></div>
-            <div>
-              <div class="muted"><?= htmlspecialchars($i18n->t('dashboard.cards_published')) ?></div>
-              <div class="metric"><?= $stats['posts_published'] ?></div>
-            </div>
-          </div>
-        </div>
-
-        <div class="card">
-          <div class="kpi">
-            <div class="kpi-icon"><?= svg('drafts') ?></div>
-            <div>
-              <div class="muted"><?= htmlspecialchars($i18n->t('dashboard.cards_drafts')) ?></div>
-              <div class="metric"><?= $stats['posts_drafts'] ?></div>
-            </div>
-          </div>
-        </div>
-
-        <div class="card">
-          <div class="kpi">
-            <div class="kpi-icon"><?= svg('comments') ?></div>
-            <div>
-              <div class="muted"><?= htmlspecialchars($i18n->t('dashboard.cards_comments')) ?></div>
-              <div class="metric"><?= $stats['comments_total'] ?></div>
-            </div>
-          </div>
-        </div>
-
-        <div class="card">
-          <div class="kpi">
-            <div class="kpi-icon"><?= svg('categories') ?></div>
-            <div>
-              <div class="muted"><?= htmlspecialchars($i18n->t('dashboard.cards_categories')) ?></div>
-              <div class="metric"><?= $stats['categories_total'] ?></div>
-            </div>
-          </div>
-        </div>
-
-        <div class="card">
-          <div class="kpi">
-            <div class="kpi-icon"><?= svg('users') ?></div>
-            <div>
-              <div class="muted"><?= htmlspecialchars($i18n->t('dashboard.cards_users')) ?></div>
-              <div class="metric"><?= $stats['users_total'] ?></div>
-            </div>
-          </div>
-        </div>
+        <div class="card"><div class="kpi"><div class="kpi-icon"><?= svg('posts') ?></div><div><div class="muted"><?= htmlspecialchars($i18n->t('dashboard.cards_posts_total')) ?></div><div class="metric"><?= $stats['posts_total'] ?></div></div></div></div>
+        <div class="card"><div class="kpi"><div class="kpi-icon"><?= svg('published') ?></div><div><div class="muted"><?= htmlspecialchars($i18n->t('dashboard.cards_published')) ?></div><div class="metric"><?= $stats['posts_published'] ?></div></div></div></div>
+        <div class="card"><div class="kpi"><div class="kpi-icon"><?= svg('drafts') ?></div><div><div class="muted"><?= htmlspecialchars($i18n->t('dashboard.cards_drafts')) ?></div><div class="metric"><?= $stats['posts_drafts'] ?></div></div></div></div>
+        <div class="card"><div class="kpi"><div class="kpi-icon"><?= svg('comments') ?></div><div><div class="muted"><?= htmlspecialchars($i18n->t('dashboard.cards_comments')) ?></div><div class="metric"><?= $stats['comments_total'] ?></div></div></div></div>
+        <div class="card"><div class="kpi"><div class="kpi-icon"><?= svg('categories') ?></div><div><div class="muted"><?= htmlspecialchars($i18n->t('dashboard.cards_categories')) ?></div><div class="metric"><?= $stats['categories_total'] ?></div></div></div></div>
+        <div class="card"><div class="kpi"><div class="kpi-icon"><?= svg('users') ?></div><div><div class="muted"><?= htmlspecialchars($i18n->t('dashboard.cards_users')) ?></div><div class="metric"><?= $stats['users_total'] ?></div></div></div></div>
       </section>
 
       <div class="grid">
@@ -152,7 +114,7 @@ function svg($name, $cls='icon-18') {
                   <span>
                     <span class="badge"><?= htmlspecialchars((string)($p['status'] ?? '')) ?></span>
                     <span class="muted" style="margin-left:8px;">
-                      <?= htmlspecialchars(date($i18n->t('dashboard.date_fmt'), strtotime((string)$p['created_at']))) ?>
+                      <?= htmlspecialchars(fmtDate($i18n, (string)$p['created_at'])) ?>
                     </span>
                     <a class="btn" style="margin-left:10px" href="/admin/post-edit.php?id=<?= (int)$p['id'] ?>">
                       <?= htmlspecialchars($i18n->t('dashboard.button_open')) ?> <?= svg('open','icon-16') ?>
