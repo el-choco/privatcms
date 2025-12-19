@@ -47,12 +47,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $pdo) {
             }
             $flag = __DIR__ . '/../config/first_run.flag';
             if (is_file($flag)) { @unlink($flag); }
-            $_SESSION['admin'] = [
-                'id' => (int)($user['id'] ?? 0),
-                'username' => $username,
-                'role' => 'admin',
-                'source' => 'setup',
-            ];
+            $_SESSION['admin'] = ['id' => (int)($user['id'] ?? 0), 'username' => $username, 'role' => 'admin', 'source' => 'setup'];
             session_regenerate_id(true);
             header('Location: /admin/');
             exit;
@@ -72,15 +67,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $pdo) {
   <div class="login-card">
     <h1><?= htmlspecialchars($i18n->t('admin_setup.title')) ?></h1>
     <p><?= htmlspecialchars($i18n->t('admin_setup.lead', ['{user}' => 'admin'])) ?></p>
+
     <?php if ($error): ?><div class="error"><?= htmlspecialchars($error) ?></div><?php endif; ?>
-    <form method="post" action="/admin/setup.php" autocomplete="off">
+
+    <form method="post" action="/admin/setup.php" autocomplete="off" class="form form-2col">
       <input type="hidden" name="csrf" value="<?= htmlspecialchars($csrf) ?>">
-      <label><?= htmlspecialchars($i18n->t('admin_setup.label_password')) ?></label>
-      <input class="input" type="password" name="password" required minlength="8" placeholder="">
-      <label><?= htmlspecialchars($i18n->t('admin_setup.label_confirm')) ?></label>
-      <input class="input" type="password" name="confirm" required minlength="8" placeholder="">
-      <button class="btn" type="submit"><?= htmlspecialchars($i18n->t('admin_setup.button_save_continue')) ?></button>
+      <div>
+        <label><?= htmlspecialchars($i18n->t('admin_setup.label_password')) ?></label>
+        <input class="input" type="password" name="password" required minlength="8" placeholder="" autofocus>
+      </div>
+      <div>
+        <label><?= htmlspecialchars($i18n->t('admin_setup.label_confirm')) ?></label>
+        <input class="input" type="password" name="confirm" required minlength="8" placeholder="">
+      </div>
+      <div>
+        <button class="btn" type="submit"><?= htmlspecialchars($i18n->t('admin_setup.button_save_continue')) ?></button>
+      </div>
     </form>
+
     <p style="margin-top:10px"><a href="/admin/login.php"><?= htmlspecialchars($i18n->t('admin_setup.link_back_login')) ?></a></p>
   </div>
 </body>
