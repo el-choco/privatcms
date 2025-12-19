@@ -34,7 +34,16 @@ final class I18n {
         } else {
             $item = $key;
         }
-        $val = $section && $item && isset($this->map[$section][$item]) ? (string)$this->map[$section][$item] : ($this->map[$item] ?? $key);
+        $val = $key; // default to key when not found
+        if ($section && $item) {
+            if (isset($this->map[$section][$item]) && is_string($this->map[$section][$item])) {
+                $val = (string)$this->map[$section][$item];
+            }
+        } else {
+            if (isset($this->map[$item]) && is_string($this->map[$item])) {
+                $val = (string)$this->map[$item];
+            }
+        }
         if ($repl) {
             $val = strtr($val, $repl);
         }
