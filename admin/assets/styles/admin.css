@@ -29,16 +29,16 @@ textarea.input{min-height:140px}
 @media(max-width:720px){.form-2col{grid-template-columns:1fr;}.login-card{margin:24px 12px}}
 
 /* Dashboard helpers */
-.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;margin-bottom:16px}
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(222px,1fr));gap:12px;margin-bottom:16px}
 .card{background:#fff;border:1px solid var(--border);border-radius:12px;padding:14px}
 .metric{font-size:28px;font-weight:700;margin-top:2px}
 .muted{color:var(--muted);font-size:12px}
 .grid{display:grid;grid-template-columns:1fr;gap:16px}
 @media(min-width:960px){.grid{grid-template-columns:2fr 1fr}}
-.panel{background:#fff;border:1px solid var(--border);border-radius:12px;padding:16px}
+.panel{background:#fff;border:1px solid var(--border);border-radius:12px;padding:16px;margin:20px;}
 .panel h3{margin:0 0 10px;font-size:16px}
 .list{list-style:none;margin:0;padding:0}
-.list li{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid #f1f59}
+.list li{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid #f1f5f9;}
 .list li:last-child{border-bottom:none}
 .badge{display:inline-block;padding:2px 8px;border-radius:999px;font-size:12px;border:1px solid var(--border)}
 
@@ -56,3 +56,20 @@ textarea.input{min-height:140px}
 .tab-nav{display:flex;flex-wrap:wrap;gap:8px;margin:-8px -8px 16px -8px;padding:8px;border-bottom:1px solid #e5e7eb;background:#f8fafc;border-radius:8px}
 .tab-nav a{display:inline-flex;align-items:center;gap:8px;padding:8px 12px;border:1px solid var(--border);border-radius:999px;background:#fff;color:var(--text);text-decoration:none;font-size:13px}
 .tab-nav a.active{background:#f0f7ff;color:#0b5fe0;border-color:#cfe0ff}
+/* Status Badges */
+.badge.status-pending { background-color: #fef3c7; color: #92400e; } 
+.badge.status-approved { background-color: #d1fae5; color: #065f46; } 
+.badge.status-spam { background-color: #fee2e2; color: #991b1b; } 
+
+/* Layout  */
+.flex-column {
+    flex-direction: column;
+    align-items: flex-start !important;
+}
+.item-content {
+    color: #444;
+    background: #fdfdfd;
+    padding: 8px;
+    border-left: 3px solid #ddd;
+    width: 100%;
+}
