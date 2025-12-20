@@ -36,25 +36,58 @@ function svg($name, $cls='icon-18') {
     'posts' => '<path d="M6 3h7a2 2 0 0 1 2 2v12l-4-2-4 2V5a2 2 0 0 1 2-2z"/>',
     'published' => '<path d="M20 6 9 17l-5-5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>',
     'drafts' => '<path d="M3 6h12v12H3z"/><path d="M7 3h12v12h-4" fill="none"/>',
-    'comments' => '<path d="M21 15a4 4 0 0 1-4 4H7l-4 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z" fill="none"/>',
+    'comments' => '<path d="M21 15a4 4 0  0 1-4 4H7l-4 3V7a4 4 0  0 1 4-4h10a4 4 0 0 1 4 4z" fill="none"/>',
     'categories' => '<path d="M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h7v7h-7z"/>',
     'users' => '<path d="M16 21v-2a4 4 0 0 0-4-4h-2a4 4 0  0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>',
     'open' => '<path d="M5 12h11"/><path d="M12 5l7 7-7 7" />',
     'new' => '<path d="M12 5v14M5 12h14" />',
     'manage' => '<path d="M4 6h16M4 12h10M4 18h16" />',
     'file' => '<path d="M14 3H6a2 2 0 0 0-2 2v14l4-2 4 2 4-2 4 2V9z" fill="none"/>',
-    'settings' => '<path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0  0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0  0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06A2 2 2 0 1 1 7.04 3.3l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a2 2 0 0 0-.33 1.82V9c0 .67.39 1.27 1 1.51.64 .26 1.09 .88 1.09 1.6s-.45 1.34-1.09 1.6c-.61 .24-1 .84-1 1.29z" fill="none"/>',
-    'tags' => '<path d="M20 10V4h-6l-8 8 6 6 8-8z"/><circle cx="14" cy="6" r="1"/>',
-    'comments2' => '<path d="M21 15a4 4 0 0 1-4 4H7l-4 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z" fill="none"/>',
+    'settings' => '<path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0  0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21"/>',
   ];
   $path = $icons[$name] ?? '';
   return '<svg class="'.$cls.'" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1.5" aria-hidden="true">'.$path.'</svg>';
 }
-
 function fmtDate(I18n $i18n, string $ts): string {
   $fmt = $i18n->t('common.date_fmt');
   return date($fmt ?: 'd.m.Y', strtotime($ts));
 }
+function fmtBytes($bytes): string {
+  $b = (float)$bytes; if ($b <= 0) return '0 B';
+  $u = ['B','KB','MB','GB','TB']; $i = (int)floor(log($b, 1024));
+  return sprintf('%.1f %s', $b/pow(1024,$i), $u[$i]);
+}
+function yn(I18n $i18n, bool $v): string { return $v ? ($i18n->t('common.yes') ?: 'Yes') : ($i18n->t('common.no') ?: 'No'); }
+
+/* System info */
+$sys = [
+  'php_version' => PHP_VERSION,
+  'php_sapi' => PHP_SAPI,
+  'php_ini' => php_ini_loaded_file() ?: '(none)',
+  'os' => PHP_OS.' '.php_uname('r'),
+  'server' => $_SERVER['SERVER_SOFTWARE'] ?? '',
+  'timezone' => date_default_timezone_get(),
+  'memory_limit' => ini_get('memory_limit'),
+  'max_execution_time' => ini_get('max_execution_time'),
+  'upload_max_filesize' => ini_get('upload_max_filesize'),
+  'post_max_size' => ini_get('post_max_size'),
+  'extensions' => [],
+  'disk_total' => null,
+  'disk_free' => null,
+  'config_writable' => is_writable(__DIR__.'/../config'),
+  'db_version' => null,
+  'db_charset' => null,
+  'db_collation' => null,
+  'db_sql_mode' => null,
+];
+try { $sys['extensions'] = get_loaded_extensions(); sort($sys['extensions']); } catch (Throwable $e) {}
+try { $sys['disk_total'] = @disk_total_space('/'); $sys['disk_free'] = @disk_free_space('/'); } catch (Throwable $e) {}
+try {
+  $sys['db_version'] = (string)$pdo->query("SELECT VERSION()")->fetchColumn();
+  $sys['db_charset'] = (string)$pdo->query("SHOW VARIABLES LIKE 'character_set_database'")->fetch(PDO::FETCH_ASSOC)['Value'] ?? '';
+  $sys['db_collation'] = (string)$pdo->query("SHOW VARIABLES LIKE 'collation_database'")->fetch(PDO::FETCH_ASSOC)['Value'] ?? '';
+  $sys['db_sql_mode'] = (string)$pdo->query("SHOW VARIABLES LIKE 'sql_mode'")->fetch(PDO::FETCH_ASSOC)['Value'] ?? '';
+} catch (Throwable $e) {}
 ?>
 <!DOCTYPE html>
 <html lang="<?= htmlspecialchars($i18n->locale()) ?>">
@@ -90,12 +123,12 @@ function fmtDate(I18n $i18n, string $ts): string {
       <p class="muted"><?= htmlspecialchars($i18n->t('dashboard.logged_in_as', ['{user}' => (string)($admin['username'] ?? 'admin')])) ?></p>
 
       <section class="cards">
-        <div class="card"><div class="kpi"><div class="kpi-icon"><?= svg('posts') ?></div><div><div class="muted"><?= htmlspecialchars($i18n->t('dashboard.cards_posts_total')) ?></div><div class="metric"><?= $stats['posts_total'] ?></div></div></div></div>
-        <div class="card"><div class="kpi"><div class="kpi-icon"><?= svg('published') ?></div><div><div class="muted"><?= htmlspecialchars($i18n->t('dashboard.cards_published')) ?></div><div class="metric"><?= $stats['posts_published'] ?></div></div></div></div>
-        <div class="card"><div class="kpi"><div class="kpi-icon"><?= svg('drafts') ?></div><div><div class="muted"><?= htmlspecialchars($i18n->t('dashboard.cards_drafts')) ?></div><div class="metric"><?= $stats['posts_drafts'] ?></div></div></div></div>
-        <div class="card"><div class="kpi"><div class="kpi-icon"><?= svg('comments') ?></div><div><div class="muted"><?= htmlspecialchars($i18n->t('dashboard.cards_comments')) ?></div><div class="metric"><?= $stats['comments_total'] ?></div></div></div></div>
-        <div class="card"><div class="kpi"><div class="kpi-icon"><?= svg('categories') ?></div><div><div class="muted"><?= htmlspecialchars($i18n->t('dashboard.cards_categories')) ?></div><div class="metric"><?= $stats['categories_total'] ?></div></div></div></div>
-        <div class="card"><div class="kpi"><div class="kpi-icon"><?= svg('users') ?></div><div><div class="muted"><?= htmlspecialchars($i18n->t('dashboard.cards_users')) ?></div><div class="metric"><?= $stats['users_total'] ?></div></div></div></div>
+        <div class="card"><div class="kpi"><div class="kpi-icon"><?= svg('posts') ?></div><div><div class="muted"><?= htmlspecialchars($i18n->t('dashboard.cards_posts_total')) ?></div><div class="metric"><?= (int)$stats['posts_total'] ?></div></div></div></div>
+        <div class="card"><div class="kpi"><div class="kpi-icon"><?= svg('published') ?></div><div><div class="muted"><?= htmlspecialchars($i18n->t('dashboard.cards_published')) ?></div><div class="metric"><?= (int)$stats['posts_published'] ?></div></div></div></div>
+        <div class="card"><div class="kpi"><div class="kpi-icon"><?= svg('drafts') ?></div><div><div class="muted"><?= htmlspecialchars($i18n->t('dashboard.cards_drafts')) ?></div><div class="metric"><?= (int)$stats['posts_drafts'] ?></div></div></div></div>
+        <div class="card"><div class="kpi"><div class="kpi-icon"><?= svg('comments') ?></div><div><div class="muted"><?= htmlspecialchars($i18n->t('dashboard.cards_comments')) ?></div><div class="metric"><?= (int)$stats['comments_total'] ?></div></div></div></div>
+        <div class="card"><div class="kpi"><div class="kpi-icon"><?= svg('categories') ?></div><div><div class="muted"><?= htmlspecialchars($i18n->t('dashboard.cards_categories')) ?></div><div class="metric"><?= (int)$stats['categories_total'] ?></div></div></div></div>
+        <div class="card"><div class="kpi"><div class="kpi-icon"><?= svg('users') ?></div><div><div class="muted"><?= htmlspecialchars($i18n->t('dashboard.cards_users')) ?></div><div class="metric"><?= (int)$stats['users_total'] ?></div></div></div></div>
       </section>
 
       <div class="grid">
@@ -108,8 +141,7 @@ function fmtDate(I18n $i18n, string $ts): string {
               <?php foreach ($latestPosts as $p): ?>
                 <li>
                   <span>
-                    <strong>#<?= (int)$p['id'] ?></strong>
-                    <?= htmlspecialchars((string)($p['title'] ?? '')) ?>
+                    <strong>#<?= (int)$p['id'] ?></strong> <?= htmlspecialchars((string)($p['title'] ?? '')) ?>
                   </span>
                   <span>
                     <span class="badge"><?= htmlspecialchars((string)($p['status'] ?? '')) ?></span>
@@ -129,15 +161,36 @@ function fmtDate(I18n $i18n, string $ts): string {
         <section class="panel">
           <h3><?= htmlspecialchars($i18n->t('dashboard.panel_quick')) ?></h3>
           <div class="quick">
-            <a href="/admin/post-create.php"><?= svg('new','icon-18') ?> <?= htmlspecialchars($i18n->t('dashboard.quick_new_post')) ?></a>
             <a href="/admin/posts.php"><?= svg('manage','icon-18') ?> <?= htmlspecialchars($i18n->t('dashboard.quick_manage_posts')) ?></a>
-            <a href="/admin/comments.php"><?= svg('comments2','icon-18') ?> <?= htmlspecialchars($i18n->t('dashboard.quick_comments')) ?></a>
+            <a href="/admin/comments.php"><?= svg('comments','icon-18') ?> <?= htmlspecialchars($i18n->t('dashboard.quick_comments')) ?></a>
             <a href="/admin/files.php"><?= svg('file','icon-18') ?> <?= htmlspecialchars($i18n->t('dashboard.quick_files')) ?></a>
-            <a href="/admin/categories.php"><?= svg('tags','icon-18') ?> <?= htmlspecialchars($i18n->t('dashboard.quick_categories')) ?></a>
+            <a href="/admin/categories.php"><?= svg('categories','icon-18') ?> <?= htmlspecialchars($i18n->t('dashboard.quick_categories')) ?></a>
             <a href="/admin/settings.php"><?= svg('settings','icon-18') ?> <?= htmlspecialchars($i18n->t('dashboard.quick_settings')) ?></a>
           </div>
         </section>
       </div>
+
+      <section class="panel">
+        <h3><?= htmlspecialchars($i18n->t('dashboard.system_title')) ?></h3>
+        <ul class="list">
+          <li><span>PHP</span><span><?= htmlspecialchars($sys['php_version']) ?> • <?= htmlspecialchars($sys['php_sapi']) ?></span></li>
+          <li><span><?= htmlspecialchars($i18n->t('dashboard.system_php_ini')) ?></span><span><?= htmlspecialchars($sys['php_ini']) ?></span></li>
+          <li><span><?= htmlspecialchars($i18n->t('dashboard.system_server')) ?></span><span><?= htmlspecialchars($sys['server']) ?></span></li>
+          <li><span><?= htmlspecialchars($i18n->t('dashboard.system_os')) ?></span><span><?= htmlspecialchars($sys['os']) ?></span></li>
+          <li><span><?= htmlspecialchars($i18n->t('dashboard.system_timezone')) ?></span><span><?= htmlspecialchars($sys['timezone']) ?></span></li>
+          <li><span><?= htmlspecialchars($i18n->t('dashboard.system_memory_limit')) ?></span><span><?= htmlspecialchars($sys['memory_limit']) ?></span></li>
+          <li><span><?= htmlspecialchars($i18n->t('dashboard.system_upload_max')) ?></span><span><?= htmlspecialchars($sys['upload_max_filesize']) ?></span></li>
+          <li><span><?= htmlspecialchars($i18n->t('dashboard.system_post_max')) ?></span><span><?= htmlspecialchars($sys['post_max_size']) ?></span></li>
+          <li><span><?= htmlspecialchars($i18n->t('dashboard.system_max_exec')) ?></span><span><?= htmlspecialchars((string)$sys['max_execution_time']) ?>s</span></li>
+          <li><span><?= htmlspecialchars($i18n->t('dashboard.system_config_writable')) ?></span><span><?= htmlspecialchars(yn($i18n, (bool)$sys['config_writable'])) ?></span></li>
+          <li><span><?= htmlspecialchars($i18n->t('dashboard.system_disk')) ?></span><span><?= htmlspecialchars(fmtBytes($sys['disk_free'] ?? 0)) ?> / <?= htmlspecialchars(fmtBytes($sys['disk_total'] ?? 0)) ?></span></li>
+          <li><span><?= htmlspecialchars($i18n->t('dashboard.system_db_version')) ?></span><span><?= htmlspecialchars($sys['db_version'] ?? '') ?></span></li>
+          <li><span><?= htmlspecialchars($i18n->t('dashboard.system_db_charset')) ?></span><span><?= htmlspecialchars($sys['db_charset'] ?? '') ?></span></li>
+          <li><span><?= htmlspecialchars($i18n->t('dashboard.system_db_collation')) ?></span><span><?= htmlspecialchars($sys['db_collation'] ?? '') ?></span></li>
+          <li><span><?= htmlspecialchars($i18n->t('dashboard.system_db_sqlmode')) ?></span><span><?= htmlspecialchars($sys['db_sql_mode'] ?? '') ?></span></li>
+          <li><span><?= htmlspecialchars($i18n->t('dashboard.system_extensions')) ?></span><span><?= htmlspecialchars(implode(', ', array_slice($sys['extensions'], 0, 24))) ?><?php $cnt=count($sys['extensions']); if ($cnt>24) echo ' … (+'.($cnt-24).')'; ?></span></li>
+        </ul>
+      </section>
     </main>
   </div>
 </body>
