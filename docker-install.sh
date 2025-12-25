@@ -91,7 +91,7 @@ $COMPOSE exec -T web chown -R www-data:www-data /var/www/html/public/uploads
 $COMPOSE exec -T web chmod -R 775 /var/www/html/public/uploads
 
 $COMPOSE exec -T web chown -R www-data:www-data /var/www/html/config
-$COMPOSE exec -T web chmod -R 775 /var/www/html/config'
+$COMPOSE exec -T web chmod -R 775 /var/www/html/config
 
 echo -e "\n✅ Installation abgeschlossen!"
 echo "Frontend: ${APP_URL}"
