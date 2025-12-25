@@ -1,208 +1,241 @@
 <?php
-// admin/post-edit.php
 declare(strict_types=1);
 session_start();
 if (empty($_SESSION['admin'])) { header('Location: /admin/login.php'); exit; }
 
 require_once __DIR__ . '/../src/App/Database.php';
 require_once __DIR__ . '/../src/App/I18n.php';
-use App\Database;
-use App\I18n;
-
 $ini = parse_ini_file(__DIR__ . '/../config/config.ini', true, INI_SCANNER_TYPED) ?: [];
-$i18n = I18n::fromConfig($ini, $_GET['lang'] ?? null);
-$pdo = (new Database($ini['database'] ?? []))->pdo();
+$pdo = (new App\Database($ini['database'] ?? []))->pdo();
 
 $id = (int)($_GET['id'] ?? 0);
-$post = $pdo->prepare("SELECT * FROM posts WHERE id = ?");
-$post->execute([$id]);
-$data = $post->fetch();
+
+$catStmt = $pdo->query("SELECT * FROM categories ORDER BY name ASC");
+$categories = $catStmt->fetchAll();
+
+$stmt = $pdo->prepare("SELECT * FROM posts WHERE id = ?");
+$stmt->execute([$id]);
+$data = $stmt->fetch();
 
 if (!$data) { die("Beitrag nicht gefunden."); }
+
+include 'header.php';
 ?>
-<!DOCTYPE html>
-<html lang="de">
-<head>
-    <meta charset="utf-8">
-    <title>Editor - <?= htmlspecialchars($data['title']) ?></title>
-    <link href="/admin/assets/styles/admin.css" rel="stylesheet">
-    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-    <style>
-        .editor-container { display: flex; flex-direction: column; height: calc(100vh - 160px); border: 1px solid #ddd; border-radius: 8px; background: #fff; margin-top: 10px; }
-        .toolbar { background: #f1f1f1; padding: 10px; border-bottom: 1px solid #ddd; display: flex; gap: 8px; align-items: center; }
-        .toolbar-btn { padding: 5px 12px; cursor: pointer; border: 1px solid #ccc; background: #fff; border-radius: 4px; font-weight: bold; transition: 0.2s; }
-        .toolbar-btn:hover { background: #e9ecef; }
+
+<header class="top-header">
+    <div style="display: flex; align-items: center; gap: 15px;">
+        <a href="posts.php" class="btn" style="text-decoration: none; padding: 8px 15px; background: #edf2f7; color: #4a5568;">← Zurück</a>
+        <h1 style="margin:0; font-size: 1.25rem;">Pro-Editor</h1>
+    </div>
+    <div style="display: flex; align-items: center; gap: 20px;">
+        <div id="save-status" style="font-size: 13px; color: #718096; font-style: italic;"></div>
+        <button id="save-btn" class="btn btn-primary" style="padding: 10px 25px; font-weight: bold; min-width: 180px;">💾 Beibehalten & Sichern</button>
+    </div>
+</header>
+
+<div class="content-area" style="width: 1400px; margin: 0 auto;">
+    <div class="card" style="margin-bottom: 15px; padding: 20px; border-left: 5px solid #3182ce; display: flex; gap: 20px; align-items: flex-end;">
+        <div style="flex: 1;">
+            <label style="display: block; font-size: 11px; font-weight: 800; color: #a0aec0; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px;">Beitragstitel</label>
+            <input type="text" id="post-title" value="<?= htmlspecialchars($data['title']) ?>" 
+                   style="width: 100%; font-size: 1.8rem; font-weight: 700; border: none; outline: none; color: #2d3748; background: transparent;"
+                   placeholder="Titel hier eingeben...">
+        </div>
         
-        .editor-main { display: flex; flex: 1; overflow: hidden; }
-        .editor-area, .preview-area { flex: 1; padding: 20px; overflow-y: auto; }
-        .editor-area { border-right: 1px solid #ddd; }
-        textarea { width: 100%; height: 100%; border: none; outline: none; font-family: 'Courier New', monospace; font-size: 1.05rem; resize: none; line-height: 1.5; }
+        <div style="width: 250px;">
+            <label style="display: block; font-size: 11px; font-weight: 800; color: #a0aec0; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px;">Kategorie</label>
+            <select id="post-category" style="width: 100%; padding: 10px; border-radius: 6px; border: 1px solid #cbd5e1; background: #fff; font-weight: 600; color: #4a5568;">
+                <option value="">Keine Kategorie</option>
+                <?php foreach ($categories as $cat): ?>
+                    <option value="<?= $cat['id'] ?>" <?= ($data['category_id'] == $cat['id']) ? 'selected' : '' ?>>
+                        <?= htmlspecialchars($cat['name']) ?>
+                    </option>
+                <?php endforeach; ?>
+            </select>
+        </div>
+    </div>
+
+    <div class="card" style="margin-bottom: 15px; padding: 15px; border-left: 5px solid #1877f2; display: flex; align-items: center; gap: 20px;">
+        <div id="image-preview-container" style="width: 120px; height: 80px; background: #f0f2f5; border-radius: 8px; overflow: hidden; display: flex; align-items: center; justify-content: center; border: 1px solid #e2e8f0; flex-shrink: 0;">
+            <?php if (!empty($data['hero_image'])): ?>
+                <img src="/uploads/images/<?= htmlspecialchars($data['hero_image']) ?>" id="current-hero-preview" style="width: 100%; height: 100%; object-fit: cover;">
+            <?php else: ?>
+                <span style="color: #a0aec0; font-size: 10px; text-align: center; padding: 5px;">Kein Bild</span>
+            <?php endif; ?>
+        </div>
         
-        /* Split-Screen Steuerung */
-        .hidden { display: none; }
-        .full-width { width: 100% !important; border: none !important; flex: 1 0 100% !important; }
+        <div style="flex: 1;">
+            <label style="display: block; font-size: 11px; font-weight: 800; color: #a0aec0; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px;">Vorschaubild (Thumb)</label>
+            <input type="file" id="hero-upload" accept="image/*" style="font-size: 13px;">
+            <input type="hidden" id="hero-image-name" value="<?= htmlspecialchars($data['hero_image'] ?? '') ?>">
+        </div>
+    </div>
+
+    <div class="card" style="margin-bottom: 15px; padding: 15px; border-left: 5px solid #718096;">
+        <label style="display: block; font-size: 11px; font-weight: 800; color: #a0aec0; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px;">Kurztext (Vorschau auf Startseite)</label>
+        <textarea id="post-excerpt" rows="3" style="width: 100%; border: 1px solid #e2e8f0; border-radius: 6px; padding: 10px; font-family: inherit; resize: vertical; outline: none;"><?= htmlspecialchars($data['excerpt'] ?? '') ?></textarea>
+    </div>
+
+    <div class="card" style="margin-bottom: 10px; padding: 10px; background: #f8fafc; border-bottom: 2px solid #e2e8f0; display: flex; flex-direction: column; gap: 10px;">
+        <div class="toolbar-row">
+            <span class="toolbar-label">HTML</span>
+            <button class="tool-btn" onclick="format('<b>', '</b>')">b</button>
+            <button class="tool-btn" onclick="format('<i>', '</i>')">i</button>
+            <button class="tool-btn" onclick="format('<u>', '</u>')">u</button>
+            <button class="tool-btn" onclick="format('<center>', '</center>')">center</button>
+            <button class="tool-btn" onclick="format('<a href=\'\'>', '</a>')">link</button>
+            <button class="tool-btn" onclick="format('<img src=\'\' alt=\'\'>', '')">img</button>
+            <button class="tool-btn" onclick="format('<blockquote>', '</blockquote>')">quote</button>
+            <button class="tool-btn" onclick="format('<ul>\n<li>', '</li>\n</ul>')">ul</button>
+            <button class="tool-btn" onclick="format('<li>', '</li>')">li</button>
+            <button class="tool-btn" onclick="format('<p>', '</p>')">p</button>
+            <button class="tool-btn" onclick="format('<div>', '</div>')">div</button>
+            <button class="tool-btn btn-br" onclick="format('<br>', '')" title="Line Break">&lt;br&gt;</button>
+        </div>
         
-        /* Preview Styling */
-        .preview-area { background: #fdfdfd; line-height: 1.6; color: #333; }
-        .preview-area h1, .preview-area h2 { border-bottom: 1px solid #eee; padding-bottom: 5px; }
-        
-        /* Toast Nachricht */
-        #toast {
-            visibility: hidden;
-            min-width: 250px;
-            background-color: #27ae60;
-            color: #fff;
-            text-align: center;
-            border-radius: 6px;
-            padding: 16px;
-            position: fixed;
-            z-index: 1000;
-            right: 30px;
-            bottom: 30px;
-            font-size: 17px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
-        }
-        #toast.show { visibility: visible; animation: fadein 0.5s, fadeout 0.5s 2.5s; }
-        @keyframes fadein { from {bottom: 0; opacity: 0;} to {bottom: 30px; opacity: 1;} }
-        @keyframes fadeout { from {bottom: 30px; opacity: 1;} to {bottom: 0; opacity: 0;} }
-    </style>
-</head>
-<body class="admin-layout">
-<aside class="admin-sidebar">
-    <h2 class="brand">Admin</h2>
-    <nav>
-        <a href="/admin/dashboard.php" class="<?= basename($_SERVER['PHP_SELF']) == 'dashboard.php' ? 'active' : '' ?>">Dashboard</a>
-        <a href="/admin/posts.php" class="<?= basename($_SERVER['PHP_SELF']) == 'posts.php' ? 'active' : '' ?>">Beiträge</a>
-        <a href="/admin/comments.php">Kommentare</a>
-        <a href="/admin/files.php">Dateien</a>
-        <a href="/admin/categories.php">Kategorien</a>
-        <a href="/admin/settings.php">Einstellungen</a>
-        <a href="/admin/logout.php">Abmelden</a>
-    </nav>
-</aside>
-    <main class="admin-content">
-        <div class="topbar">
-            <h1 style="margin:0">Editor: <?= htmlspecialchars($data['title']) ?></h1>
-            <div style="display:flex; gap:5px;">
-                <button type="button" class="btn btn-sm" onclick="setMode('edit')">Nur Editor</button>
-                <button type="button" class="btn btn-sm" onclick="setMode('split')">Split-View</button>
-                <button type="button" class="btn btn-sm" onclick="setMode('preview')">Nur Vorschau</button>
+        <div class="toolbar-row">
+            <span class="toolbar-label">MARKUP</span>
+            <button class="tool-btn" onclick="format('**', '**')"><strong>B</strong></button>
+            <button class="tool-btn" onclick="format('*', '*')"><em>I</em></button>
+            <button class="tool-btn" onclick="format('# ', '')">H1</button>
+            <button class="tool-btn" onclick="format('## ', '')">H2</button>
+            <button class="tool-btn" onclick="format('- ', '')">List</button>
+            <button class="tool-btn" onclick="insertTable()">📋 Tabelle</button>
+            <button class="tool-btn" onclick="format('`', '`')">Code</button>
+            
+            <div style="margin-left: auto; display: flex; background: #e2e8f0; padding: 2px; border-radius: 4px; gap: 2px;">
+                <button id="view-preview-btn" class="toggle-btn active" onclick="setView('preview')">👁️ Vorschau</button>
+                <button id="view-html-btn" class="toggle-btn" onclick="setView('html')">⚡ HTML</button>
             </div>
         </div>
+    </div>
 
-        <div class="editor-container">
-            <div class="toolbar">
-                <button type="button" class="toolbar-btn" onclick="wrap('**','**')" title="Fett">B</button>
-                <button type="button" class="toolbar-btn" onclick="wrap('*','*')" title="Kursiv">I</button>
-                <button type="button" class="toolbar-btn" onclick="insert('### ')" title="Überschrift">H3</button>
-                <button type="button" class="toolbar-btn" onclick="wrap('[Link-Text](', ')')" title="Link">Link</button>
-                <button type="button" class="toolbar-btn" onclick="wrap('<code>', '</code>')" title="HTML Code">Code</button>
-                <button type="button" class="toolbar-btn" onclick="wrap('<div class=\'alert\'>', '</div>')" title="Hinweisbox">Alert</button>
-                
-                <button type="button" id="save-btn" class="btn" style="margin-left: auto; background: #27ae60; color: white; border: none; padding: 6px 20px;">
-                    Speichern
-                </button>
-            </div>
-
-            <div class="editor-main">
-                <div class="editor-area" id="edit-box">
-                    <textarea id="markdown-input" name="content" spellcheck="false" placeholder="Schreibe etwas Wunderbares..."><?= htmlspecialchars($data['content']) ?></textarea>
-                </div>
-                <div class="preview-area" id="preview-box">
-                    <div id="render-target" class="article-body"></div>
-                </div>
-            </div>
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; height: calc(100vh - 450px); min-height: 400px;">
+        <div class="card" style="padding: 0; display: flex; flex-direction: column;">
+            <div class="view-header">MARKDOWN EDITOR</div>
+            <textarea id="markdown-editor" class="main-editor"><?= htmlspecialchars($data['content']) ?></textarea>
         </div>
-    </main>
+        
+        <div class="card" style="padding: 0; display: flex; flex-direction: column; overflow: hidden;">
+            <div id="preview-label" class="view-header">LIVE-VORSCHAU</div>
+            <div id="preview" class="prose" style="flex: 1; padding: 25px; overflow-y: auto; background: #fff;"></div>
+            <textarea id="html-picker" readonly class="html-view" style="display: none;"></textarea>
+        </div>
+    </div>
+</div>
 
-    <div id="toast">Änderungen erfolgreich gespeichert!</div>
+<div id="toast">Beitrag erfolgreich gespeichert!</div>
 
-    <script>
-        const input = document.getElementById('markdown-input');
-        const target = document.getElementById('render-target');
-        const editBox = document.getElementById('edit-box');
-        const previewBox = document.getElementById('preview-box');
-        const saveBtn = document.getElementById('save-btn');
+<style>
+    .toolbar-row { display: flex; gap: 5px; align-items: center; flex-wrap: wrap; }
+    .toolbar-label { font-size: 9px; font-weight: 800; color: #cbd5e1; width: 50px; text-transform: uppercase; }
+    .tool-btn { background: white; border: 1px solid #cbd5e1; padding: 5px 12px; border-radius: 4px; cursor: pointer; font-size: 12px; color: #4a5568; min-width: 45px; height: 32px; display: flex; align-items: center; justify-content: center; }
+    .tool-btn:hover { background: #3182ce; color: white; border-color: #3182ce; }
+    .btn-br { color: #e53e3e; font-weight: bold; border-color: #feb2b2; background: #fff5f5; }
+    .toggle-btn { border: none; padding: 4px 12px; font-size: 10px; font-weight: bold; border-radius: 3px; cursor: pointer; background: transparent; color: #718096; height: 28px; }
+    .toggle-btn.active { background: white; color: #3182ce; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+    .view-header { padding: 6px 15px; background: #edf2f7; font-size: 10px; font-weight: bold; color: #718096; border-bottom: 1px solid #e2e8f0; }
+    .main-editor { flex: 1; width: 100%; padding: 20px; border: none; font-family: 'Fira Code', monospace; font-size: 15px; line-height: 1.6; resize: none; outline: none; }
+    .html-view { flex: 1; width: 100%; padding: 20px; border: none; font-family: monospace; font-size: 13px; background: #f8fafc; outline: none; resize: none; }
+    #toast { visibility: hidden; min-width: 250px; background-color: #38a169; color: white; text-align: center; border-radius: 8px; padding: 16px; position: fixed; z-index: 1000; left: 50%; bottom: 30px; transform: translateX(-50%); font-weight: bold; }
+</style>
 
-        // Markdown Live-Vorschau
-        function updatePreview() {
-            target.innerHTML = marked.parse(input.value);
-        }
-        input.addEventListener('input', updatePreview);
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script>
+    const editor = document.getElementById('markdown-editor');
+    const preview = document.getElementById('preview');
+    const htmlPicker = document.getElementById('html-picker');
+    const titleInput = document.getElementById('post-title');
+    const excerptInput = document.getElementById('post-excerpt');
+    const categoryInput = document.getElementById('post-category');
+    const heroUpload = document.getElementById('hero-upload');
+    const heroImageName = document.getElementById('hero-image-name');
+    const previewContainer = document.getElementById('image-preview-container');
+    const saveBtn = document.getElementById('save-btn');
 
-        // Ansichts-Modus wechseln
-        function setMode(mode) {
-            if(mode === 'edit') {
-                editBox.classList.remove('hidden', 'full-width');
-                editBox.classList.add('full-width');
-                previewBox.classList.add('hidden');
-            } else if(mode === 'preview') {
-                editBox.classList.add('hidden');
-                previewBox.classList.remove('hidden', 'full-width');
-                previewBox.classList.add('full-width');
-            } else {
-                editBox.classList.remove('hidden', 'full-width');
-                previewBox.classList.remove('hidden', 'full-width');
-            }
-        }
+    function setView(mode) {
+        const isPreview = mode === 'preview';
+        preview.style.display = isPreview ? 'block' : 'none';
+        htmlPicker.style.display = isPreview ? 'none' : 'block';
+        document.getElementById('view-preview-btn').classList.toggle('active', isPreview);
+        document.getElementById('view-html-btn').classList.toggle('active', !isPreview);
+    }
 
-        // Toolbar Funktionen
-        function wrap(before, after) {
-            const start = input.selectionStart;
-            const end = input.selectionEnd;
-            const text = input.value;
-            input.value = text.substring(0, start) + before + text.substring(start, end) + after + text.substring(end);
-            input.focus();
-            input.setSelectionRange(start + before.length, end + before.length);
-            updatePreview();
-        }
+    function updatePreview() {
+        const html = marked.parse(editor.value);
+        preview.innerHTML = html;
+        htmlPicker.value = html;
+    }
+    editor.addEventListener('input', updatePreview);
+    window.addEventListener('DOMContentLoaded', updatePreview);
 
-        function insert(str) {
-            const pos = input.selectionStart;
-            input.value = input.value.substring(0, pos) + str + input.value.substring(pos);
-            input.focus();
-            updatePreview();
-        }
-
-        // Toast anzeigen
-        function showToast() {
-            const x = document.getElementById("toast");
-            x.className = "show";
-            setTimeout(function(){ x.className = x.className.replace("show", ""); }, 3000);
-        }
-
-        // AJAX Speicherung
-        saveBtn.addEventListener('click', function() {
-            const content = input.value;
-            const postId = new URLSearchParams(window.location.search).get('id');
-
-            saveBtn.disabled = true;
-            saveBtn.innerText = 'Speichere...';
-
-            fetch('save-post-ajax.php', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ id: postId, content: content })
-            })
-            .then(res => res.json())
-            .then(data => {
-                if(data.status === 'ok') {
-                    showToast();
-                } else {
-                    alert('Fehler beim Speichern');
-                }
-            })
-            .catch(err => alert('Netzwerkfehler: ' + err))
-            .finally(() => {
-                saveBtn.disabled = false;
-                saveBtn.innerText = 'Speichern';
-            });
-        });
-
-        // Initialer Render
+    function format(prefix, suffix) {
+        const start = editor.selectionStart;
+        const end = editor.selectionEnd;
+        const scrollPos = editor.scrollTop;
+        editor.value = editor.value.substring(0, start) + prefix + editor.value.substring(start, end) + suffix + editor.value.substring(end);
+        editor.focus();
+        const newPos = start + prefix.length + (end - start);
+        editor.setSelectionRange(newPos, newPos);
+        editor.scrollTop = scrollPos;
         updatePreview();
-        // Standardmäßig im Split-Modus starten
-        setMode('split');
-    </script>
-</body>
-</html>
+    }
+
+    function insertTable() {
+        format("\n| Kopf | Kopf |\n|---|---|\n| Text | Text |\n", "");
+    }
+
+    // Bild-Upload Logik
+    heroUpload.addEventListener('change', function() {
+        const file = this.files[0];
+        if (!file) return;
+
+        const formData = new FormData();
+        formData.append('image', file);
+
+        fetch('upload-handler.php', {
+            method: 'POST',
+            body: formData
+        })
+        .then(res => res.json())
+        .then(result => {
+            if (result.success) {
+                heroImageName.value = result.filename;
+                previewContainer.innerHTML = `<img src="/uploads/images/${result.filename}" style="width: 100%; height: 100%; object-fit: cover;">`;
+            } else {
+                alert("Fehler: " + result.message);
+            }
+        });
+    });
+
+    saveBtn.addEventListener('click', () => {
+        saveBtn.innerText = "⏳ Speichere...";
+        saveBtn.disabled = true;
+        fetch('save-post-ajax.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                id: <?= $id ?>,
+                title: titleInput.value,
+                excerpt: excerptInput.value,
+                content: editor.value,
+                category_id: categoryInput.value,
+                hero_image: heroImageName.value
+            })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.status === 'ok') {
+                const toast = document.getElementById('toast');
+                toast.style.visibility = "visible";
+                setTimeout(() => { toast.style.visibility = "hidden"; }, 3000);
+                document.getElementById('save-status').innerText = "Gesichert: " + new Date().toLocaleTimeString();
+            }
+        })
+        .finally(() => {
+            saveBtn.innerText = "💾 Beibehalten & Sichern";
+            saveBtn.disabled = false;
+        });
+    });
+</script>
+<?php include 'footer.php'; ?>

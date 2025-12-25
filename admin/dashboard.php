@@ -5,146 +5,114 @@ if (empty($_SESSION['admin'])) { header('Location: /admin/login.php'); exit; }
 
 require_once __DIR__ . '/../src/App/Database.php';
 require_once __DIR__ . '/../src/App/I18n.php';
-use App\Database;
-use App\I18n;
-
 $ini = parse_ini_file(__DIR__ . '/../config/config.ini', true, INI_SCANNER_TYPED) ?: [];
-$langOverride = isset($_GET['lang']) ? (string)$_GET['lang'] : null;
-$i18n = I18n::fromConfig($ini, $langOverride);
+$pdo = (new App\Database($ini['database'] ?? []))->pdo();
 
-$dbCfg = $ini['database'] ?? [];
-$pdo = (new Database($dbCfg))->pdo();
-
-// Statistiken laden
+// Statistiken
 $stats = [
-    'posts_total'      => (int)$pdo->query("SELECT COUNT(*) FROM posts")->fetchColumn(),
-    'posts_published'  => (int)$pdo->query("SELECT COUNT(*) FROM posts WHERE status='published'")->fetchColumn(),
-    'comments_total'   => (int)$pdo->query("SELECT COUNT(*) FROM comments")->fetchColumn(),
-    'users_total'      => (int)$pdo->query("SELECT COUNT(*) FROM users")->fetchColumn(),
+    'posts' => (int)$pdo->query("SELECT COUNT(*) FROM posts")->fetchColumn(),
+    'published' => (int)$pdo->query("SELECT COUNT(*) FROM posts WHERE status='published'")->fetchColumn(),
+    'comments' => (int)$pdo->query("SELECT COUNT(*) FROM comments")->fetchColumn(),
+    'users' => (int)$pdo->query("SELECT COUNT(*) FROM users")->fetchColumn()
 ];
 
-// Daten für die Listen
-$latestPosts = $pdo->query("SELECT id, title, status, created_at FROM posts ORDER BY created_at DESC LIMIT 5")->fetchAll();
+$latestPosts = $pdo->query("SELECT title, created_at, status FROM posts ORDER BY created_at DESC LIMIT 5")->fetchAll();
 $latestComments = $pdo->query("SELECT author_name, content, created_at FROM comments ORDER BY created_at DESC LIMIT 5")->fetchAll();
 
-$admin = $_SESSION['admin'] ?? ['username' => 'admin'];
-
-function svg($name, $cls='icon-18') {
-  $icons = [
-    'posts' => '<path d="M6 3h7a2 2 0 0 1 2 2v12l-4-2-4 2V5a2 2 0 0 1 2-2z"/>',
-    'published' => '<path d="M20 6 9 17l-5-5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>',
-    'comments' => '<path d="M21 15a4 4 0 0 1-4 4H7l-4 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z" fill="none"/>',
-    'users' => '<path d="M16 21v-2a4 4 0 0 0-4-4h-2a4 4 0  0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>',
-    'open' => '<path d="M5 12h11"/><path d="M12 5l7 7-7 7" />',
-    'server' => '<rect x="2" y="2" width="20" height="8" rx="2" ry="2"></rect><rect x="2" y="14" width="20" height="8" rx="2" ry="2"></rect><line x1="6" y1="6" x2="6.01" y2="6"></line><line x1="6" y1="18" x2="6.01" y2="18"></line>'
-  ];
-  return '<svg class="'.$cls.'" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1.5">'.($icons[$name] ?? '').'</svg>';
-}
+include 'header.php'; 
 ?>
-<!DOCTYPE html>
-<html lang="<?= htmlspecialchars($i18n->locale()) ?>">
-<head>
-  <meta charset="utf-8">
-  <title>Dashboard – PiperBlog Admin</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <link href="/admin/assets/styles/admin.css" rel="stylesheet">
-  <style>
-    /* Full Width Stats */
-    .stats-full { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; margin-bottom: 25px; }
-    
-    /* Grid für die unteren 3 Panels */
-    .dashboard-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
-    .span-full { grid-column: span 2; }
-    
-    .system-table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
-    .system-table td { padding: 10px 0; border-bottom: 1px solid #f0f0f0; }
-    .system-table td:last-child { text-align: right; font-weight: bold; color: #2c3e50; }
 
-    .comment-preview { font-size: 0.85rem; color: #555; background: #f9f9f9; padding: 5px 10px; border-radius: 4px; display: block; margin-top: 4px; }
-  </style>
-</head>
-<body>
-  <div class="admin-layout">
-    <aside class="admin-sidebar">
-      <h2 class="brand">Admin</h2>
-      <nav>
-        <a href="/admin/dashboard.php" class="active"><?= htmlspecialchars($i18n->t('nav.dashboard')) ?></a>
-        <a href="/admin/posts.php"><?= htmlspecialchars($i18n->t('nav.posts')) ?></a>
-        <a href="/admin/comments.php"><?= htmlspecialchars($i18n->t('nav.comments')) ?></a>
-        <a href="/admin/files.php"><?= htmlspecialchars($i18n->t('nav.files')) ?></a>
-        <a href="/admin/categories.php"><?= htmlspecialchars($i18n->t('nav.categories')) ?></a>
-        <a href="/admin/settings.php"><?= htmlspecialchars($i18n->t('nav.settings')) ?></a>
-        <a href="/admin/logout.php"><?= htmlspecialchars($i18n->t('nav.logout')) ?></a>
-      </nav>
-    </aside>
+<header class="top-header">
+    <h1>📊 Dashboard Übersicht</h1>
+</header>
 
-    <main class="admin-content">
-      <div class="topbar">
-        <h1><?= htmlspecialchars($i18n->t('dashboard.title')) ?></h1>
-        <div class="lang-switch">
-          <a href="?lang=de" class="<?= $i18n->locale()==='de'?'active':'' ?>">DE</a>
-          <a href="?lang=en" class="<?= $i18n->locale()==='en'?'active':'' ?>">EN</a>
+<div class="content-area">
+    <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; margin-bottom: 30px;">
+        <div class="card" style="padding: 20px; text-align: center; border-top: 4px solid #3182ce;">
+            <div style="font-size: 12px; color: #718096; font-weight: bold;">GESAMT BEITRÄGE</div>
+            <div style="font-size: 2.2rem; font-weight: 800;"><?= $stats['posts'] ?></div>
         </div>
-      </div>
+        <div class="card" style="padding: 20px; text-align: center; border-top: 4px solid #38a169;">
+            <div style="font-size: 12px; color: #718096; font-weight: bold;">ÖFFENTLICH</div>
+            <div style="font-size: 2.2rem; font-weight: 800; color: #38a169;"><?= $stats['published'] ?></div>
+        </div>
+        <div class="card" style="padding: 20px; text-align: center; border-top: 4px solid #805ad5;">
+            <div style="font-size: 12px; color: #718096; font-weight: bold;">KOMMENTARE</div>
+            <div style="font-size: 2.2rem; font-weight: 800; color: #3182ce;"><?= $stats['comments'] ?></div>
+        </div>
+        <div class="card" style="padding: 20px; text-align: center; border-top: 4px solid #e53e3e;">
+            <div style="font-size: 12px; color: #718096; font-weight: bold;">BENUTZER</div>
+            <div style="font-size: 2.2rem; font-weight: 800; color: #e53e3e;"><?= $stats['users'] ?></div>
+        </div>
+    </div>
 
-      <section class="stats-full">
-        <div class="card"><div class="kpi"><div class="kpi-icon"><?= svg('posts') ?></div><div><div class="muted">Beiträge</div><div class="metric"><?= $stats['posts_total'] ?></div></div></div></div>
-        <div class="card"><div class="kpi"><div class="kpi-icon" style="color:#27ae60"><?= svg('published') ?></div><div><div class="muted">Online</div><div class="metric"><?= $stats['posts_published'] ?></div></div></div></div>
-        <div class="card"><div class="kpi"><div class="kpi-icon" style="color:#2980b9"><?= svg('comments') ?></div><div><div class="muted">Kommentare</div><div class="metric"><?= $stats['comments_total'] ?></div></div></div></div>
-        <div class="card"><div class="kpi"><div class="kpi-icon" style="color:#8e44ad"><?= svg('users') ?></div><div><div class="muted">Benutzer</div><div class="metric"><?= $stats['users_total'] ?></div></div></div></div>
-      </section>
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 25px; margin-bottom: 30px;">
+        <div class="card">
+            <div style="padding: 15px 20px; border-bottom: 1px solid #edf2f7; font-weight: bold; display: flex; justify-content: space-between;">
+                <span>📝 Neueste Beiträge</span>
+                <a href="posts.php" style="font-size: 12px; color: #3182ce;">Alle</a>
+            </div>
+            <div style="padding: 10px;">
+                <?php foreach($latestPosts as $p): ?>
+                <div style="padding: 12px; border-bottom: 1px solid #f7fafc; display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                        <div style="font-weight: 600; font-size: 14px;"><?= htmlspecialchars($p['title']) ?></div>
+                        <div style="font-size: 11px; color: #a0aec0;"><?= date('d.m.Y', strtotime($p['created_at'])) ?></div>
+                    </div>
+                    <span style="font-size: 10px; padding: 2px 8px; border-radius: 10px; background: <?= $p['status']==='published'?'#c6f6d5':'#feebc8' ?>;">
+                        <?= $p['status'] ?>
+                    </span>
+                </div>
+                <?php endforeach; ?>
+            </div>
+        </div>
 
-      <div class="dashboard-grid">
-        <section class="panel">
-          <h3><?= htmlspecialchars($i18n->t('dashboard.panel_latest_posts')) ?></h3>
-          <ul class="list">
-            <?php foreach ($latestPosts as $p): ?>
-              <li>
-                <span><strong>#<?= $p['id'] ?></strong> <?= htmlspecialchars($p['title']) ?></span>
-                <span>
-                  <span class="badge"><?= $p['status'] ?></span>
-                  <a class="btn btn-sm" style="margin-left:10px" href="/article.php?id=<?= $p['id'] ?>">Öffnen <?= svg('open','icon-14') ?></a>
-                </span>
-              </li>
-            <?php endforeach; ?>
-          </ul>
-        </section>
+        <div class="card">
+            <div style="padding: 15px 20px; border-bottom: 1px solid #edf2f7; font-weight: bold; display: flex; justify-content: space-between;">
+                <span>💬 Neueste Kommentare</span>
+                <a href="comments.php" style="font-size: 12px; color: #3182ce;">Alle</a>
+            </div>
+            <div style="padding: 10px;">
+                <?php foreach($latestComments as $c): ?>
+                <div style="padding: 12px; border-bottom: 1px solid #f7fafc;">
+                    <div style="font-size: 13px;"><strong><?= htmlspecialchars($c['author_name']) ?></strong></div>
+                    <div style="font-size: 13px; color: #4a5568; margin: 4px 0;"><?= htmlspecialchars(mb_strimwidth($c['content'], 0, 60, "...")) ?></div>
+                    <div style="font-size: 11px; color: #a0aec0;"><?= date('d.m.Y H:i', strtotime($c['created_at'])) ?></div>
+                </div>
+                <?php endforeach; ?>
+            </div>
+        </div>
+    </div>
 
-        <section class="panel">
-          <h3><?= svg('comments', 'icon-18') ?> Neueste Kommentare</h3>
-          <ul class="list">
-            <?php if (empty($latestComments)): ?>
-              <li class="muted">Noch keine Kommentare.</li>
-            <?php else: ?>
-              <?php foreach ($latestComments as $c): ?>
-                <li style="flex-direction: column; align-items: flex-start;">
-                  <div><strong><?= htmlspecialchars($c['author_name']) ?></strong> <small class="muted"><?= date('d.m.Y', strtotime($c['created_at'])) ?></small></div>
-                  <span class="comment-preview"><?= htmlspecialchars(mb_strimwidth($c['content'], 0, 60, "...")) ?></span>
-                </li>
-              <?php endforeach; ?>
-            <?php endif; ?>
-          </ul>
-        </section>
-
-        <section class="panel span-full">
-          <h3><?= svg('server', 'icon-18') ?> System Information</h3>
-          <table class="system-table">
-            <tr>
-              <td class="muted">Server Software & PHP</td>
-              <td><?= $_SERVER['SERVER_SOFTWARE'] ?> | PHP <?= PHP_VERSION ?></td>
+    <div class="card">
+        <div style="padding: 15px 20px; border-bottom: 1px solid #edf2f7; font-weight: bold;">🖥️ System & Server Information</div>
+        <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
+            <tr style="border-bottom: 1px solid #f7fafc;">
+                <td style="padding: 15px 20px; color: #718096; width: 30%;">Server Software</td>
+                <td style="padding: 15px 20px; font-weight: 600;"><?= $_SERVER['SERVER_SOFTWARE'] ?></td>
+            </tr>
+            <tr style="border-bottom: 1px solid #f7fafc;">
+                <td style="padding: 15px 20px; color: #718096;">PHP Version</td>
+                <td style="padding: 15px 20px; font-weight: 600;"><?= PHP_VERSION ?></td>
+            </tr>
+            <tr style="border-bottom: 1px solid #f7fafc;">
+                <td style="padding: 15px 20px; color: #718096;">Datenbank Treiber</td>
+                <td style="padding: 15px 20px; font-weight: 600;"><?= $pdo->getAttribute(PDO::ATTR_DRIVER_NAME) ?> (<?= $pdo->getAttribute(PDO::ATTR_SERVER_VERSION) ?>)</td>
+            </tr>
+            <tr style="border-bottom: 1px solid #f7fafc;">
+                <td style="padding: 15px 20px; color: #718096;">Protokoll</td>
+                <td style="padding: 15px 20px; font-weight: 600;"><?= $_SERVER['SERVER_PROTOCOL'] ?></td>
             </tr>
             <tr>
-              <td class="muted">Datenbank Version</td>
-              <td><?= $pdo->getAttribute(PDO::ATTR_SERVER_VERSION) ?></td>
+                <td style="padding: 15px 20px; color: #718096;">Konfiguration</td>
+                <td style="padding: 15px 20px;">
+                    <?= is_writable(__DIR__ . '/../config/config.ini') 
+                        ? '<span style="color: #38a169; font-weight: bold;">✅ config.ini ist schreibbar</span>' 
+                        : '<span style="color: #e53e3e; font-weight: bold;">❌ config.ini schreibgeschützt</span>' ?>
+                </td>
             </tr>
-            <tr>
-              <td class="muted">Konfiguration schreibbar?</td>
-              <td><?= is_writable(__DIR__ . '/../config/config.ini') ? 'Ja' : 'Nein' ?></td>
-            </tr>
-          </table>
-        </section>
-      </div>
-    </main>
-  </div>
-</body>
-</html>
+        </table>
+    </div>
+</div>
+
+<?php include 'footer.php'; ?>

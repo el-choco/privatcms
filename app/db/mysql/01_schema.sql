@@ -143,4 +143,12 @@ INSERT INTO comments (post_id, author_name, author_email, content, status, creat
 SELECT p.id, 'Gast', 'gast@example.com', 'Könntest du ein Beispiel-Compose posten?', 'pending', NOW() - INTERVAL 8 DAY
 FROM posts p WHERE p.slug='docker-compose-quickstart';
 
+CREATE TABLE IF NOT EXISTS categories (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    slug VARCHAR(100) NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+ALTER TABLE posts ADD COLUMN category_id INT DEFAULT NULL;
+
 COMMIT;
