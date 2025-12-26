@@ -85,11 +85,14 @@ $COMPOSE exec -T db mysql -u"$MYSQL_USER" -p"$MYSQL_PASSWORD" -e "$SQL" "$MYSQL_
 # 7) RECHTE VERGEBEN & ORDNERSTRUKTUR IM ROOT PRÜFEN
 echo "[*] Optimiere Berechtigungen für das Root-Upload-Verzeichnis..."
 
+# Ordner im Container erstellen
 $COMPOSE exec -T web mkdir -p /var/www/html/public/uploads/images
 
+# Rechte für Uploads setzen
 $COMPOSE exec -T web chown -R www-data:www-data /var/www/html/public/uploads
 $COMPOSE exec -T web chmod -R 775 /var/www/html/public/uploads
 
+# Rechte für Config setzen
 $COMPOSE exec -T web chown -R www-data:www-data /var/www/html/config
 $COMPOSE exec -T web chmod -R 775 /var/www/html/config
 
