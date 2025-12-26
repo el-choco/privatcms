@@ -4,238 +4,223 @@ session_start();
 if (empty($_SESSION['admin'])) { header('Location: /admin/login.php'); exit; }
 
 require_once __DIR__ . '/../src/App/Database.php';
-require_once __DIR__ . '/../src/App/I18n.php';
 $ini = parse_ini_file(__DIR__ . '/../config/config.ini', true, INI_SCANNER_TYPED) ?: [];
 $pdo = (new App\Database($ini['database'] ?? []))->pdo();
 
 $id = (int)($_GET['id'] ?? 0);
-
-$catStmt = $pdo->query("SELECT * FROM categories ORDER BY name ASC");
-$categories = $catStmt->fetchAll();
-
 $stmt = $pdo->prepare("SELECT * FROM posts WHERE id = ?");
 $stmt->execute([$id]);
 $data = $stmt->fetch();
 
 if (!$data) { die("Beitrag nicht gefunden."); }
 
-include 'header.php';
+$categories = $pdo->query("SELECT * FROM categories ORDER BY name ASC")->fetchAll();
+
+// Pfad auf das Haupt-Upload-Verzeichnis angepasst
+$uploadDir = __DIR__ . '/../public/uploads/';
+$allFiles = is_dir($uploadDir) ? array_diff(scandir($uploadDir), ['.', '..']) : [];
 ?>
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="utf-8">
+    <title>Editor - <?= htmlspecialchars($data['title']) ?></title>
+    <link href="/admin/assets/styles/admin.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <style>
+        .editor-layout { display: grid; grid-template-columns: 1fr 320px; gap: 20px; height: calc(100vh - 120px); }
+        .editor-main-card { display: flex; flex-direction: column; background: #fff; border-radius: 8px; border: 1px solid #ddd; overflow: hidden; }
+        .sidebar-card { background: #fff; border-radius: 8px; border: 1px solid #ddd; padding: 20px; display: flex; flex-direction: column; gap: 15px; overflow-y: auto; }
+        .toolbar { background: #f8fafc; padding: 10px; border-bottom: 1px solid #ddd; display: flex; gap: 8px; }
+        .editor-split { display: flex; flex: 1; overflow: hidden; }
+        .editor-area, .preview-area { flex: 1; padding: 15px; overflow-y: auto; }
+        .editor-area { border-right: 1px solid #ddd; }
+        textarea { width: 100%; height: 100%; border: none; outline: none; font-family: monospace; resize: none; font-size: 14px; }
+        #mediaModal { display: none; position: fixed; z-index: 10000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); align-items: center; justify-content: center; }
+        .modal-content { background: white; padding: 20px; border-radius: 12px; width: 80%; max-width: 900px; max-height: 80vh; overflow-y: auto; }
+        .media-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 15px; margin-top: 15px; }
+        .media-item { cursor: pointer; border: 2px solid transparent; border-radius: 6px; overflow: hidden; transition: 0.2s; text-align: center; background: #f8fafc; padding: 5px; }
+        .media-item:hover { border-color: #3182ce; transform: scale(1.05); }
+        .media-item img { width: 100%; height: 100px; object-fit: cover; display: block; border-radius: 4px; }
+        .media-item .file-icon { font-size: 3rem; line-height: 100px; height: 100px; }
+    </style>
+</head>
+<body class="admin-layout">
+    <aside class="admin-sidebar">
+        <h2 class="brand">PiperBlog</h2>
+        <nav>
+            <a href="/admin/posts.php">← Zurück</a>
+            <div style="margin-top: 20px; padding: 0 15px;">
+                <button id="save-btn" class="btn btn-primary" style="width: 100%;">Speichern</button>
+            </div>
+        </nav>
+    </aside>
 
-<header class="top-header">
-    <div style="display: flex; align-items: center; gap: 15px;">
-        <a href="posts.php" class="btn" style="text-decoration: none; padding: 8px 15px; background: #edf2f7; color: #4a5568;">← Zurück</a>
-        <h1 style="margin:0; font-size: 1.25rem;">Pro-Editor</h1>
-    </div>
-    <div style="display: flex; align-items: center; gap: 20px;">
-        <div id="save-status" style="font-size: 13px; color: #718096; font-style: italic;"></div>
-        <button id="save-btn" class="btn btn-primary" style="padding: 10px 25px; font-weight: bold; min-width: 180px;">💾 Beibehalten & Sichern</button>
-    </div>
-</header>
+    <main class="admin-content">
+        <div class="editor-layout">
+            <div class="editor-main-card">
+                <div class="toolbar">
+                    <button class="btn btn-sm" onclick="wrap('**','**')"><b>B</b></button>
+                    <button class="btn btn-sm" onclick="wrap('*','*')"><i>I</i></button>
+                    <button class="btn btn-sm" onclick="insert('### ')">H3</button>
+                    <button class="btn btn-sm" onclick="openMediaModal('content')">🖼️ Bild einfügen</button>
+                </div>
+                <div class="editor-split">
+                    <div class="editor-area">
+                        <textarea id="markdown-input" spellcheck="false"><?= htmlspecialchars($data['content']) ?></textarea>
+                    </div>
+                    <div id="preview-box" class="preview-area article-body"></div>
+                </div>
+            </div>
 
-<div class="content-area" style="width: 1400px; margin: 0 auto;">
-    <div class="card" style="margin-bottom: 15px; padding: 20px; border-left: 5px solid #3182ce; display: flex; gap: 20px; align-items: flex-end;">
-        <div style="flex: 1;">
-            <label style="display: block; font-size: 11px; font-weight: 800; color: #a0aec0; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px;">Beitragstitel</label>
-            <input type="text" id="post-title" value="<?= htmlspecialchars($data['title']) ?>" 
-                   style="width: 100%; font-size: 1.8rem; font-weight: 700; border: none; outline: none; color: #2d3748; background: transparent;"
-                   placeholder="Titel hier eingeben...">
+            <div class="sidebar-card">
+                <div>
+                    <label style="font-weight: bold; font-size: 12px;">Titel</label>
+                    <input type="text" id="post-title" class="input" value="<?= htmlspecialchars($data['title']) ?>">
+                </div>
+
+                <div>
+                    <label style="font-weight: bold; font-size: 12px;">Beitragsbild (Hero)</label>
+                    <div style="display: flex; gap: 5px; margin-top: 5px;">
+                        <input type="text" id="hero-image" class="input" value="<?= htmlspecialchars($data['hero_image'] ?? '') ?>" placeholder="bild.jpg">
+                        <button class="btn" onclick="openMediaModal('hero')"> Wahl </button>
+                    </div>
+                    <div id="hero-preview" style="margin-top: 10px; height: 100px; background: #f1f5f9; border-radius: 6px; display: flex; align-items: center; justify-content: center; overflow: hidden;">
+                        <?php if($data['hero_image']): ?>
+                            <img src="/uploads/<?= htmlspecialchars($data['hero_image']) ?>" style="width: 100%; height: 100%; object-fit: cover;">
+                        <?php else: ?>
+                            <span style="color: #94a3b8; font-size: 12px;">Kein Bild</span>
+                        <?php endif; ?>
+                    </div>
+                </div>
+
+                <div>
+                    <label style="font-weight: bold; font-size: 12px;">Download Datei (Optional)</label>
+                    <div style="display: flex; gap: 5px; margin-top: 5px;">
+                        <input type="text" id="download-file" class="input" value="<?= htmlspecialchars($data['download_file'] ?? '') ?>" placeholder="datei.zip">
+                        <button class="btn" onclick="openMediaModal('download')"> Wahl </button>
+                    </div>
+                </div>
+
+                <div>
+                    <label style="font-weight: bold; font-size: 12px;">Kategorie</label>
+                    <select id="post-category" class="input">
+                        <option value="">Keine Kategorie</option>
+                        <?php foreach($categories as $cat): ?>
+                            <option value="<?= $cat['id'] ?>" <?= $cat['id'] == $data['category_id'] ? 'selected' : '' ?>>
+                                <?= htmlspecialchars($cat['name']) ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+
+                <div>
+                    <label style="font-weight: bold; font-size: 12px;">Status</label>
+                    <select id="post-status" class="input">
+                        <option value="draft" <?= $data['status'] === 'draft' ? 'selected' : '' ?>>Entwurf</option>
+                        <option value="published" <?= $data['status'] === 'published' ? 'selected' : '' ?>>Veröffentlicht</option>
+                    </select>
+                </div>
+
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <input type="checkbox" id="post-sticky" <?= ($data['is_sticky'] ?? 0) ? 'checked' : '' ?>>
+                    <label for="post-sticky" style="font-weight: bold; font-size: 12px; cursor: pointer;">📌 Beitrag anheften</label>
+                </div>
+            </div>
         </div>
-        
-        <div style="width: 250px;">
-            <label style="display: block; font-size: 11px; font-weight: 800; color: #a0aec0; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px;">Kategorie</label>
-            <select id="post-category" style="width: 100%; padding: 10px; border-radius: 6px; border: 1px solid #cbd5e1; background: #fff; font-weight: 600; color: #4a5568;">
-                <option value="">Keine Kategorie</option>
-                <?php foreach ($categories as $cat): ?>
-                    <option value="<?= $cat['id'] ?>" <?= ($data['category_id'] == $cat['id']) ? 'selected' : '' ?>>
-                        <?= htmlspecialchars($cat['name']) ?>
-                    </option>
+    </main>
+
+    <div id="mediaModal">
+        <div class="modal-content">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <h3 style="margin: 0;">Mediathek</h3>
+                <button class="btn" onclick="closeMediaModal()">Schließen</button>
+            </div>
+            <div class="media-grid">
+                <?php foreach($allFiles as $f): ?>
+                    <div class="media-item" onclick="selectImage('<?= htmlspecialchars($f) ?>')">
+                        <?php if(preg_match('/\.(jpg|jpeg|png|gif|webp)$/i', $f)): ?>
+                            <img src="/uploads/<?= htmlspecialchars($f) ?>" title="<?= htmlspecialchars($f) ?>">
+                        <?php else: ?>
+                            <div class="file-icon" title="<?= htmlspecialchars($f) ?>">📄</div>
+                            <div style="font-size: 10px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"><?= htmlspecialchars($f) ?></div>
+                        <?php endif; ?>
+                    </div>
                 <?php endforeach; ?>
-            </select>
-        </div>
-    </div>
-
-    <div class="card" style="margin-bottom: 15px; padding: 15px; border-left: 5px solid #1877f2; display: flex; align-items: center; gap: 20px;">
-        <div id="image-preview-container" style="width: 120px; height: 80px; background: #f0f2f5; border-radius: 8px; overflow: hidden; display: flex; align-items: center; justify-content: center; border: 1px solid #e2e8f0; flex-shrink: 0;">
-            <?php if (!empty($data['hero_image'])): ?>
-                <img src="/uploads/images/<?= htmlspecialchars($data['hero_image']) ?>" id="current-hero-preview" style="width: 100%; height: 100%; object-fit: cover;">
-            <?php else: ?>
-                <span style="color: #a0aec0; font-size: 10px; text-align: center; padding: 5px;">Kein Bild</span>
-            <?php endif; ?>
-        </div>
-        
-        <div style="flex: 1;">
-            <label style="display: block; font-size: 11px; font-weight: 800; color: #a0aec0; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px;">Vorschaubild (Thumb)</label>
-            <input type="file" id="hero-upload" accept="image/*" style="font-size: 13px;">
-            <input type="hidden" id="hero-image-name" value="<?= htmlspecialchars($data['hero_image'] ?? '') ?>">
-        </div>
-    </div>
-
-    <div class="card" style="margin-bottom: 15px; padding: 15px; border-left: 5px solid #718096;">
-        <label style="display: block; font-size: 11px; font-weight: 800; color: #a0aec0; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px;">Kurztext (Vorschau auf Startseite)</label>
-        <textarea id="post-excerpt" rows="3" style="width: 100%; border: 1px solid #e2e8f0; border-radius: 6px; padding: 10px; font-family: inherit; resize: vertical; outline: none;"><?= htmlspecialchars($data['excerpt'] ?? '') ?></textarea>
-    </div>
-
-    <div class="card" style="margin-bottom: 10px; padding: 10px; background: #f8fafc; border-bottom: 2px solid #e2e8f0; display: flex; flex-direction: column; gap: 10px;">
-        <div class="toolbar-row">
-            <span class="toolbar-label">HTML</span>
-            <button class="tool-btn" onclick="format('<b>', '</b>')">b</button>
-            <button class="tool-btn" onclick="format('<i>', '</i>')">i</button>
-            <button class="tool-btn" onclick="format('<u>', '</u>')">u</button>
-            <button class="tool-btn" onclick="format('<center>', '</center>')">center</button>
-            <button class="tool-btn" onclick="format('<a href=\'\'>', '</a>')">link</button>
-            <button class="tool-btn" onclick="format('<img src=\'\' alt=\'\'>', '')">img</button>
-            <button class="tool-btn" onclick="format('<blockquote>', '</blockquote>')">quote</button>
-            <button class="tool-btn" onclick="format('<ul>\n<li>', '</li>\n</ul>')">ul</button>
-            <button class="tool-btn" onclick="format('<li>', '</li>')">li</button>
-            <button class="tool-btn" onclick="format('<p>', '</p>')">p</button>
-            <button class="tool-btn" onclick="format('<div>', '</div>')">div</button>
-            <button class="tool-btn btn-br" onclick="format('<br>', '')" title="Line Break">&lt;br&gt;</button>
-        </div>
-        
-        <div class="toolbar-row">
-            <span class="toolbar-label">MARKUP</span>
-            <button class="tool-btn" onclick="format('**', '**')"><strong>B</strong></button>
-            <button class="tool-btn" onclick="format('*', '*')"><em>I</em></button>
-            <button class="tool-btn" onclick="format('# ', '')">H1</button>
-            <button class="tool-btn" onclick="format('## ', '')">H2</button>
-            <button class="tool-btn" onclick="format('- ', '')">List</button>
-            <button class="tool-btn" onclick="insertTable()">📋 Tabelle</button>
-            <button class="tool-btn" onclick="format('`', '`')">Code</button>
-            
-            <div style="margin-left: auto; display: flex; background: #e2e8f0; padding: 2px; border-radius: 4px; gap: 2px;">
-                <button id="view-preview-btn" class="toggle-btn active" onclick="setView('preview')">👁️ Vorschau</button>
-                <button id="view-html-btn" class="toggle-btn" onclick="setView('html')">⚡ HTML</button>
             </div>
         </div>
     </div>
 
-    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; height: calc(100vh - 450px); min-height: 400px;">
-        <div class="card" style="padding: 0; display: flex; flex-direction: column;">
-            <div class="view-header">MARKDOWN EDITOR</div>
-            <textarea id="markdown-editor" class="main-editor"><?= htmlspecialchars($data['content']) ?></textarea>
-        </div>
-        
-        <div class="card" style="padding: 0; display: flex; flex-direction: column; overflow: hidden;">
-            <div id="preview-label" class="view-header">LIVE-VORSCHAU</div>
-            <div id="preview" class="prose" style="flex: 1; padding: 25px; overflow-y: auto; background: #fff;"></div>
-            <textarea id="html-picker" readonly class="html-view" style="display: none;"></textarea>
-        </div>
-    </div>
-</div>
+    <script>
+        const input = document.getElementById('markdown-input');
+        const preview = document.getElementById('preview-box');
+        let currentTarget = 'hero'; 
 
-<div id="toast">Beitrag erfolgreich gespeichert!</div>
-
-<style>
-    .toolbar-row { display: flex; gap: 5px; align-items: center; flex-wrap: wrap; }
-    .toolbar-label { font-size: 9px; font-weight: 800; color: #cbd5e1; width: 50px; text-transform: uppercase; }
-    .tool-btn { background: white; border: 1px solid #cbd5e1; padding: 5px 12px; border-radius: 4px; cursor: pointer; font-size: 12px; color: #4a5568; min-width: 45px; height: 32px; display: flex; align-items: center; justify-content: center; }
-    .tool-btn:hover { background: #3182ce; color: white; border-color: #3182ce; }
-    .btn-br { color: #e53e3e; font-weight: bold; border-color: #feb2b2; background: #fff5f5; }
-    .toggle-btn { border: none; padding: 4px 12px; font-size: 10px; font-weight: bold; border-radius: 3px; cursor: pointer; background: transparent; color: #718096; height: 28px; }
-    .toggle-btn.active { background: white; color: #3182ce; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
-    .view-header { padding: 6px 15px; background: #edf2f7; font-size: 10px; font-weight: bold; color: #718096; border-bottom: 1px solid #e2e8f0; }
-    .main-editor { flex: 1; width: 100%; padding: 20px; border: none; font-family: 'Fira Code', monospace; font-size: 15px; line-height: 1.6; resize: none; outline: none; }
-    .html-view { flex: 1; width: 100%; padding: 20px; border: none; font-family: monospace; font-size: 13px; background: #f8fafc; outline: none; resize: none; }
-    #toast { visibility: hidden; min-width: 250px; background-color: #38a169; color: white; text-align: center; border-radius: 8px; padding: 16px; position: fixed; z-index: 1000; left: 50%; bottom: 30px; transform: translateX(-50%); font-weight: bold; }
-</style>
-
-<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-<script>
-    const editor = document.getElementById('markdown-editor');
-    const preview = document.getElementById('preview');
-    const htmlPicker = document.getElementById('html-picker');
-    const titleInput = document.getElementById('post-title');
-    const excerptInput = document.getElementById('post-excerpt');
-    const categoryInput = document.getElementById('post-category');
-    const heroUpload = document.getElementById('hero-upload');
-    const heroImageName = document.getElementById('hero-image-name');
-    const previewContainer = document.getElementById('image-preview-container');
-    const saveBtn = document.getElementById('save-btn');
-
-    function setView(mode) {
-        const isPreview = mode === 'preview';
-        preview.style.display = isPreview ? 'block' : 'none';
-        htmlPicker.style.display = isPreview ? 'none' : 'block';
-        document.getElementById('view-preview-btn').classList.toggle('active', isPreview);
-        document.getElementById('view-html-btn').classList.toggle('active', !isPreview);
-    }
-
-    function updatePreview() {
-        const html = marked.parse(editor.value);
-        preview.innerHTML = html;
-        htmlPicker.value = html;
-    }
-    editor.addEventListener('input', updatePreview);
-    window.addEventListener('DOMContentLoaded', updatePreview);
-
-    function format(prefix, suffix) {
-        const start = editor.selectionStart;
-        const end = editor.selectionEnd;
-        const scrollPos = editor.scrollTop;
-        editor.value = editor.value.substring(0, start) + prefix + editor.value.substring(start, end) + suffix + editor.value.substring(end);
-        editor.focus();
-        const newPos = start + prefix.length + (end - start);
-        editor.setSelectionRange(newPos, newPos);
-        editor.scrollTop = scrollPos;
+        function updatePreview() { preview.innerHTML = marked.parse(input.value); }
+        input.addEventListener('input', updatePreview);
         updatePreview();
-    }
 
-    function insertTable() {
-        format("\n| Kopf | Kopf |\n|---|---|\n| Text | Text |\n", "");
-    }
+        function wrap(before, after) {
+            const start = input.selectionStart;
+            const end = input.selectionEnd;
+            input.value = input.value.substring(0, start) + before + input.value.substring(start, end) + after + input.value.substring(end);
+            updatePreview();
+        }
 
-    // Bild-Upload Logik
-    heroUpload.addEventListener('change', function() {
-        const file = this.files[0];
-        if (!file) return;
+        function insert(str) {
+            const pos = input.selectionStart;
+            input.value = input.value.substring(0, pos) + str + input.value.substring(pos);
+            updatePreview();
+        }
 
-        const formData = new FormData();
-        formData.append('image', file);
+        function openMediaModal(target) {
+            currentTarget = target;
+            document.getElementById('mediaModal').style.display = 'flex';
+        }
+        function closeMediaModal() { document.getElementById('mediaModal').style.display = 'none'; }
 
-        fetch('upload-handler.php', {
-            method: 'POST',
-            body: formData
-        })
-        .then(res => res.json())
-        .then(result => {
-            if (result.success) {
-                heroImageName.value = result.filename;
-                previewContainer.innerHTML = `<img src="/uploads/images/${result.filename}" style="width: 100%; height: 100%; object-fit: cover;">`;
+        function selectImage(filename) {
+            if (currentTarget === 'hero') {
+                document.getElementById('hero-image').value = filename;
+                document.getElementById('hero-preview').innerHTML = `<img src="/uploads/${filename}" style="width:100%;height:100%;object-fit:cover;">`;
+            } else if (currentTarget === 'download') {
+                document.getElementById('download-file').value = filename;
             } else {
-                alert("Fehler: " + result.message);
+                insert(`\n![Bildbeschreibung](/uploads/${filename})\n`);
             }
-        });
-    });
+            closeMediaModal();
+        }
 
-    saveBtn.addEventListener('click', () => {
-        saveBtn.innerText = "⏳ Speichere...";
-        saveBtn.disabled = true;
-        fetch('save-post-ajax.php', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
+        document.getElementById('save-btn').addEventListener('click', function() {
+            const btn = this;
+            btn.disabled = true;
+            btn.innerText = 'Speichere...';
+
+            const payload = {
                 id: <?= $id ?>,
-                title: titleInput.value,
-                excerpt: excerptInput.value,
-                content: editor.value,
-                category_id: categoryInput.value,
-                hero_image: heroImageName.value
+                title: document.getElementById('post-title').value,
+                content: input.value,
+                hero_image: document.getElementById('hero-image').value,
+                download_file: document.getElementById('download-file').value,
+                category_id: document.getElementById('post-category').value,
+                status: document.getElementById('post-status').value,
+                is_sticky: document.getElementById('post-sticky').checked ? 1 : 0
+            };
+
+            fetch('save-post-ajax.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
             })
-        })
-        .then(res => res.json())
-        .then(data => {
-            if (data.status === 'ok') {
-                const toast = document.getElementById('toast');
-                toast.style.visibility = "visible";
-                setTimeout(() => { toast.style.visibility = "hidden"; }, 3000);
-                document.getElementById('save-status').innerText = "Gesichert: " + new Date().toLocaleTimeString();
-            }
-        })
-        .finally(() => {
-            saveBtn.innerText = "💾 Beibehalten & Sichern";
-            saveBtn.disabled = false;
+            .then(res => res.json())
+            .then(data => {
+                if(data.status === 'ok') {
+                    btn.innerText = '✅ Gespeichert';
+                    setTimeout(() => { btn.innerText = 'Speichern'; btn.disabled = false; }, 1500);
+                } else { alert('Fehler: ' + data.error); btn.disabled = false; }
+            })
+            .catch(err => { alert('Netzwerkfehler'); btn.disabled = false; });
         });
-    });
-</script>
-<?php include 'footer.php'; ?>
+    </script>
+</body>
+</html>

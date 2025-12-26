@@ -11,21 +11,26 @@ $pdo = (new App\Database($ini['database'] ?? []))->pdo();
 // --- AKTIONEN ---
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     $id = (int)($_POST['id'] ?? 0);
-    if ($_POST['action'] === 'delete') {
-        $pdo->prepare("DELETE FROM posts WHERE id = ?")->execute([$id]);
-    } elseif ($_POST['action'] === 'publish') {
-        $pdo->prepare("UPDATE posts SET status = 'published' WHERE id = ?")->execute([$id]);
-    } elseif ($_POST['action'] === 'unpublish') {
-        $pdo->prepare("UPDATE posts SET status = 'draft' WHERE id = ?")->execute([$id]);
+    if ($id > 0) {
+        if ($_POST['action'] === 'delete') {
+            $pdo->prepare("DELETE FROM posts WHERE id = ?")->execute([$id]);
+        } elseif ($_POST['action'] === 'publish') {
+            $pdo->prepare("UPDATE posts SET status = 'published' WHERE id = ?")->execute([$id]);
+        } elseif ($_POST['action'] === 'unpublish') {
+            $pdo->prepare("UPDATE posts SET status = 'draft' WHERE id = ?")->execute([$id]);
+        } elseif ($_POST['action'] === 'toggle_sticky') {
+            // Toggelt zwischen 0 und 1
+            $pdo->prepare("UPDATE posts SET is_sticky = 1 - is_sticky WHERE id = ?")->execute([$id]);
+        }
     }
     header("Location: posts.php"); exit;
 }
 
-// GEÄNDERT: SQL mit JOIN, um Kategorienamen zu holen
+// SQL mit JOIN und Sortierung: Erst Sticky, dann Datum
 $sql = "SELECT p.*, c.name as category_name 
         FROM posts p 
         LEFT JOIN categories c ON p.category_id = c.id 
-        ORDER BY p.created_at DESC";
+        ORDER BY p.is_sticky DESC, p.created_at DESC";
 $posts = $pdo->query($sql)->fetchAll();
 
 include 'header.php'; 
@@ -49,9 +54,13 @@ include 'header.php';
             </thead>
             <tbody>
                 <?php foreach ($posts as $p): ?>
-                <tr style="border-bottom: 1px solid #f1f5f9; transition: background 0.2s;" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='transparent'">
+                <?php $isSticky = (bool)($p['is_sticky'] ?? false); ?>
+                <tr style="border-bottom: 1px solid #f1f5f9; transition: background 0.2s; <?= $isSticky ? 'background: #fffdf5;' : '' ?>" 
+                    onmouseover="this.style.background='#f8fafc'" 
+                    onmouseout="this.style.background='<?= $isSticky ? '#fffdf5' : 'transparent' ?>'">
                     <td style="padding: 15px;">
                         <div style="font-weight: bold; font-size: 1.05rem; color: #2d3748; margin-bottom: 4px;">
+                            <?php if ($isSticky): ?><span title="Fixierter Beitrag">📌</span> <?php endif; ?>
                             <?= htmlspecialchars($p['title']) ?>
                         </div>
                         <?php if ($p['category_name']): ?>
@@ -76,6 +85,15 @@ include 'header.php';
                     </td>
                     <td style="padding: 15px; text-align: right;">
                         <div style="display: flex; justify-content: flex-end; gap: 8px;">
+                            <form method="post" style="display:inline;">
+                                <input type="hidden" name="id" value="<?= $p['id'] ?>">
+                                <input type="hidden" name="action" value="toggle_sticky">
+                                <button type="submit" class="btn" style="background: #fff; border: 1px solid #e2e8f0; font-size: 1.2rem; padding: 5px 10px; border-radius: 6px;" 
+                                        title="<?= $isSticky ? 'Vom Anfang lösen' : 'Am Anfang fixieren' ?>">
+                                    <?= $isSticky ? '📍' : '📌' ?>
+                                </button>
+                            </form>
+
                             <a href="post-edit.php?id=<?= $p['id'] ?>" class="btn" title="Bearbeiten" 
                                style="background: #fff; border: 1px solid #e2e8f0; font-size: 1.2rem; padding: 5px 10px; border-radius: 6px;">✏️</a>
                             
