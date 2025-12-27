@@ -25,13 +25,14 @@ if (!$post) { http_response_code(404); echo "Not found"; exit; }
 $parsedown = new Parsedown();
 $parsedown->setSafeMode(false); 
 
-$msg = '';
-$error = '';
-
+// Kommentar-Logik bleibt identisch
 if (!isset($_SESSION['spam_a'])) {
     $_SESSION['spam_a'] = rand(1, 10);
     $_SESSION['spam_b'] = rand(1, 10);
 }
+
+$msg = '';
+$error = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'comment') {
     $name = trim((string)($_POST['name'] ?? ''));
@@ -65,13 +66,10 @@ $comments = $stmt->fetchAll();
   <link href="/assets/styles/main.css" rel="stylesheet">
   <style>
     body { margin: 0; padding: 0; background-color: #f0f2f5; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
-    
-    /* Facebook Blauer Header */
     .top-nav { background-color: #1877f2; color: white; padding: 12px 0; box-shadow: 0 2px 4px rgba(0,0,0,0.1); width: 100%; margin-bottom: 30px; }
     .nav-container { max-width: 1200px; margin: 0 auto; width: 95%; display: flex; justify-content: space-between; align-items: center; }
     .brand { font-size: 24px; font-weight: bold; text-decoration: none; color: white; }
-    .btn-home { background-color: rgba(255,255,255,0.2); color: white; text-decoration: none; padding: 8px 16px; border-radius: 6px; font-weight: 600; transition: background 0.2s; }
-    .btn-home:hover { background-color: rgba(255,255,255,0.3); }
+    .btn-home { background-color: rgba(255,255,255,0.2); color: white; text-decoration: none; padding: 8px 16px; border-radius: 6px; font-weight: 600; }
 
     .container { max-width: 1200px; margin: 0 auto; width: 95%; padding-bottom: 50px; }
     .article { background: #fff; padding: 40px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
@@ -81,6 +79,15 @@ $comments = $stmt->fetchAll();
     .article-teaser { font-size: 1.25rem; line-height: 1.6; color: #1c1e21; font-weight: 500; margin: 20px 0 30px 0; padding: 20px; background: #f0f2f5; border-radius: 8px; border-left: 6px solid #1877f2; }
     .article-body { font-size: 1.1rem; line-height: 1.7; color: #1c1e21; }
     .article-body img { max-width: 100%; border-radius: 8px; }
+
+    /* NEU: Download Box Style */
+    .download-box { margin: 30px 0; padding: 20px; background: #f8fafc; border: 1px solid #e2e8f0; border-left: 5px solid #1877f2; border-radius: 8px; display: flex; align-items: center; justify-content: space-between; gap: 15px; }
+    .download-info { display: flex; align-items: center; gap: 12px; }
+    .download-icon { font-size: 24px; }
+    .download-title { font-weight: bold; color: #1e293b; margin: 0; }
+    .download-filename { font-size: 12px; color: #64748b; }
+    .btn-download { background: #1877f2; color: white; padding: 10px 20px; border-radius: 6px; text-decoration: none; font-weight: bold; font-size: 14px; transition: background 0.2s; }
+    .btn-download:hover { background: #0561d9; }
     
     .comments-section { margin-top: 50px; border-top: 1px solid #ced0d4; padding-top: 30px; }
     .comment-item { background: #f0f2f5; padding: 15px; border-radius: 18px; margin-bottom: 10px; display: inline-block; min-width: 300px; }
@@ -120,9 +127,23 @@ $comments = $stmt->fetchAll();
           <?= $parsedown->text($post['content']) ?>
       </div>
 
+      <?php if (!empty($post['download_file'])): ?>
+          <div class="download-box">
+              <div class="download-info">
+                  <span class="download-icon">📦</span>
+                  <div>
+                      <p class="download-title">Zugehörige Datei herunterladen</p>
+                      <span class="download-filename"><?= htmlspecialchars($post['download_file']) ?></span>
+                  </div>
+              </div>
+              <a href="/uploads/<?= htmlspecialchars($post['download_file']) ?>" class="btn-download" download>
+                  Jetzt herunterladen
+              </a>
+          </div>
+      <?php endif; ?>
+
       <section class="comments-section">
         <h3>Kommentare (<?= count($comments) ?>)</h3>
-        
         <?php foreach ($comments as $c): ?>
             <div style="margin-bottom: 15px;">
                 <div class="comment-item">
@@ -135,16 +156,16 @@ $comments = $stmt->fetchAll();
 
         <div class="comment-form">
             <h4 style="margin-top:0;">Einen Kommentar schreiben</h4>
+            <?php if ($msg): ?><p style="color: green;"><?= $msg ?></p><?php endif; ?>
+            <?php if ($error): ?><p style="color: red;"><?= $error ?></p><?php endif; ?>
             <form method="POST">
                 <input type="hidden" name="action" value="comment">
                 <input type="text" name="name" placeholder="Dein Name" required style="width: 100%; padding: 10px; margin-bottom: 10px; border: 1px solid #ced0d4; border-radius: 6px; box-sizing: border-box;">
                 <textarea name="content" rows="3" placeholder="Dein Kommentar..." required style="width: 100%; padding: 10px; margin-bottom: 10px; border: 1px solid #ced0d4; border-radius: 6px; box-sizing: border-box; resize: none;"></textarea>
-                
                 <div style="background: #f0f2f5; padding: 10px; border-radius: 6px; margin-bottom: 10px; font-size: 0.9rem;">
                     Spam-Schutz: Was ist <?= $_SESSION['spam_a'] ?> + <?= $_SESSION['spam_b'] ?>?
                     <input type="number" name="spam_ans" required style="width: 60px; padding: 5px; margin-left: 10px; border: 1px solid #ced0d4; border-radius: 4px;">
                 </div>
-                
                 <button type="submit" class="btn-submit">Kommentieren</button>
             </form>
         </div>
