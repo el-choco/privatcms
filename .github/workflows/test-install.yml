@@ -8,7 +8,7 @@ on:
 
 jobs:
   test-setup:
-    runs-with: ubuntu-latest
+    runs-on: ubuntu-latest
 
     steps:
       - name: Checkout Code
