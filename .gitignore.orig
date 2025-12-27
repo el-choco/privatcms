@@ -1,0 +1,67 @@
+<<<<<<< HEAD
+# --- Environment & Security ---
+.env
+.env.local
+config/config.ini
+config/first_run.flag
+
+# --- Media & Archives (Global Ignore) ---
+*.jpg
+*.jpeg
+*.png
+*.gif
+*.webp
+*.svg
+*.ico
+*.zip
+*.pdf
+*.rar
+
+# --- Uploads (ROOT FOLDER) ---
+/uploads/*
+
+# Folder .gitkeep 
+!/uploads/.gitkeep
+
+# --- OS / Editors ---
+=======
+# Environment
+.env
+.env.local
+
+# Dependencies / build
+vendor/
+node_modules/
+
+# OS / Editors
+>>>>>>> 5600693 (feat: initial scaffold (Docker, PHP 8.2, MySQL, frontend grid, admin shell, GNU GPL, ignores))
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+<<<<<<< HEAD
+*.swp
+
+# --- PHP / Composer ---
+vendor/
+composer.lock
+*.log
+=======
+
+# Logs / cache
+storage/
+logs/
+*.log
+
+# Uploads and data (keep dirs)
+uploads/*
+!uploads/.gitkeep
+data/*
+!data/.gitkeep
+
+# Coverage
+coverage/
+
+# Composer lock (optional; add if you commit vendor)
+composer.lock
+>>>>>>> 5600693 (feat: initial scaffold (Docker, PHP 8.2, MySQL, frontend grid, admin shell, GNU GPL, ignores))

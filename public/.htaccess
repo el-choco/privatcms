@@ -1,0 +1,32 @@
+RewriteEngine On
+RewriteBase /
+
+# ----------------------------------------------------------------------
+# FORUM ROUTING
+# ----------------------------------------------------------------------
+
+# 1. Forum Hauptseite: /forum
+RewriteRule ^forum/?$ forum.php [L]
+
+# 2. Forum Thema (Thread): /forum/thread/mein-thema
+RewriteRule ^forum/thread/([a-z0-9-]+)$ thread.php?slug=$1 [L,QSA]
+
+# 3. Forum Kategorie (Board): /forum/mein-board
+RewriteRule ^forum/([a-z0-9-]+)$ board.php?slug=$1 [L,QSA]
+
+# 4. Sitemap XML: /sitemap.xml
+RewriteRule ^sitemap\.xml$ sitemap.php [L]
+
+# ----------------------------------------------------------------------
+# CMS ROUTING
+# ----------------------------------------------------------------------
+
+# Prüfen, ob die Datei oder das Verzeichnis nicht physisch existiert
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+
+# Statische Seiten: /p/impressum -> page.php?slug=impressum
+RewriteRule ^p/([^/]+)/?$ page.php?slug=$1 [L,QSA]
+
+# Artikel: /artikel/mein-post -> article.php?slug=mein-post
+RewriteRule ^artikel/([^/]+)/?$ article.php?slug=$1 [L,QSA]

@@ -1,17 +1,28 @@
-# --- Umgebung & Sicherheit ---
+# --- Environment & Security ---
 .env
 .env.local
 config/config.ini
 config/first_run.flag
 
-# --- Uploads & Daten ---
-# Wir ignorieren den Inhalt, behalten aber die Ordnerstruktur
-uploads/images/*
-!uploads/images/.gitkeep
-data/*
-!data/.gitkeep
+# --- Media & Archives (Global Ignore) ---
+*.jpg
+*.jpeg
+*.png
+*.gif
+*.webp
+*.svg
+*.ico
+*.zip
+*.pdf
+*.rar
 
-# --- OS / Editoren ---
+# --- Uploads (ROOT FOLDER) ---
+/uploads/*
+
+# Folder .gitkeep 
+!/uploads/.gitkeep
+
+# --- OS / Editors ---
 .DS_Store
 Thumbs.db
 .idea/
