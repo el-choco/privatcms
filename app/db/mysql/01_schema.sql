@@ -20,7 +20,7 @@ CREATE TABLE IF NOT EXISTS categories (
   slug VARCHAR(128) UNIQUE NOT NULL
 );
 
--- Posts
+-- Posts (Erweitert um download_file und is_sticky)
 CREATE TABLE IF NOT EXISTS posts (
   id INT AUTO_INCREMENT PRIMARY KEY,
   user_id INT NOT NULL,
@@ -30,6 +30,10 @@ CREATE TABLE IF NOT EXISTS posts (
   excerpt TEXT,
   content LONGTEXT,
   hero_image VARCHAR(255),
+  -- NEUE SPALTEN START --
+  download_file VARCHAR(255) DEFAULT NULL,
+  is_sticky TINYINT(1) DEFAULT 0,
+  -- NEUE SPALTEN ENDE --
   status ENUM('draft','published','archived') DEFAULT 'draft',
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP NULL,
