@@ -196,28 +196,60 @@ function closeModal() {
 }
 
 /**
- * Kopiert den Text aus dem Modal-Input in die Zwischenablage
+ * Kopiert den Text aus dem Modal-Input in die Zwischenablage (Robustes Kopieren)
  */
 function copyModalLink() {
     const input = document.getElementById('modalLinkInput');
+    const copyBtn = document.querySelector('.modal-btn-copy');
+    const originalText = copyBtn.innerText;
+
+    // 1. Text im Input-Feld auswählen
     input.select();
     input.setSelectionRange(0, 99999); // Für Mobilgeräte
 
-    navigator.clipboard.writeText(input.value).then(() => {
-        const copyBtn = document.querySelector('.modal-btn-copy');
-        const originalText = copyBtn.innerText;
-        
-        copyBtn.innerText = '✅ Kopiert!';
-        copyBtn.style.background = '#2f855a';
-        
-        setTimeout(() => {
-            copyBtn.innerText = originalText;
-            copyBtn.style.background = '#3182ce';
-            closeModal();
-        }, 1000);
-    }).catch(err => {
-        alert('Fehler beim Kopieren: ' + err);
-    });
+    // 2. Versuche die moderne Methode (funktioniert nur mit HTTPS/Localhost)
+    if (navigator.clipboard && window.isSecureContext) {
+        navigator.clipboard.writeText(input.value).then(() => {
+            handleCopySuccess(copyBtn, originalText);
+        }).catch(err => {
+            console.error('Moderner Kopier-Fehler:', err);
+            fallbackCopy(input, copyBtn, originalText);
+        });
+    } else {
+        // 3. Fallback für IP-Adressen ohne HTTPS
+        fallbackCopy(input, copyBtn, originalText);
+    }
+}
+
+/**
+ * Fallback-Funktion für Umgebungen ohne HTTPS (IP-Adressen)
+ */
+function fallbackCopy(input, btn, originalText) {
+    try {
+        const successful = document.execCommand('copy');
+        if (successful) {
+            handleCopySuccess(btn, originalText);
+        } else {
+            alert('Kopieren fehlgeschlagen. Bitte manuell kopieren.');
+        }
+    } catch (err) {
+        console.error('Fallback Kopier-Fehler:', err);
+        alert('Browser unterstützt kein automatisches Kopieren.');
+    }
+}
+
+/**
+ * Visuelles Feedback bei Erfolg
+ */
+function handleCopySuccess(btn, originalText) {
+    btn.innerText = '✅ Kopiert!';
+    btn.style.background = '#2f855a';
+    
+    setTimeout(() => {
+        btn.innerText = originalText;
+        btn.style.background = '#3182ce';
+        closeModal();
+    }, 1200);
 }
 
 // Schließen des Modals bei Klick auf den dunklen Hintergrund
