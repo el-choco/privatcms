@@ -111,7 +111,7 @@ $posts = $stmt->fetchAll();
         <article class="post-card <?= $isSticky ? 'is-sticky' : '' ?>">
           <a class="post-card__media" href="/article.php?id=<?= (int)$p['id'] ?>">
             <?php if (!empty($p['hero_image'])): ?>
-              <img src="/uploads/images/<?= htmlspecialchars($p['hero_image']) ?>" alt="<?= htmlspecialchars($p['title']) ?>" loading="lazy">
+              <img src="/uploads/<?= htmlspecialchars($p['hero_image']) ?>" alt="<?= htmlspecialchars($p['title']) ?>" loading="lazy">
             <?php else: ?>
               <div style="height:100%; background:#dfe3ee; display:flex; align-items:center; justify-content:center; color:#8b9dc3; font-weight:bold;">No Image</div>
             <?php endif; ?>

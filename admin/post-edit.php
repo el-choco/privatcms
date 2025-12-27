@@ -14,10 +14,9 @@ $data = $stmt->fetch();
 
 if (!$data) { die("Beitrag nicht gefunden."); }
 
-// Kategorien für das Dropdown laden
 $categories = $pdo->query("SELECT * FROM categories ORDER BY name ASC")->fetchAll();
 
-// Dateien für die Mediathek laden (Bilder und andere Dateitypen)
+// Pfad auf das Haupt-Upload-Verzeichnis angepasst
 $uploadDir = __DIR__ . '/../public/uploads/';
 $allFiles = is_dir($uploadDir) ? array_diff(scandir($uploadDir), ['.', '..']) : [];
 ?>
@@ -32,14 +31,11 @@ $allFiles = is_dir($uploadDir) ? array_diff(scandir($uploadDir), ['.', '..']) : 
         .editor-layout { display: grid; grid-template-columns: 1fr 320px; gap: 20px; height: calc(100vh - 120px); }
         .editor-main-card { display: flex; flex-direction: column; background: #fff; border-radius: 8px; border: 1px solid #ddd; overflow: hidden; }
         .sidebar-card { background: #fff; border-radius: 8px; border: 1px solid #ddd; padding: 20px; display: flex; flex-direction: column; gap: 15px; overflow-y: auto; }
-        
         .toolbar { background: #f8fafc; padding: 10px; border-bottom: 1px solid #ddd; display: flex; gap: 8px; }
         .editor-split { display: flex; flex: 1; overflow: hidden; }
         .editor-area, .preview-area { flex: 1; padding: 15px; overflow-y: auto; }
         .editor-area { border-right: 1px solid #ddd; }
         textarea { width: 100%; height: 100%; border: none; outline: none; font-family: monospace; resize: none; font-size: 14px; }
-        
-        /* Media Modal */
         #mediaModal { display: none; position: fixed; z-index: 10000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); align-items: center; justify-content: center; }
         .modal-content { background: white; padding: 20px; border-radius: 12px; width: 80%; max-width: 900px; max-height: 80vh; overflow-y: auto; }
         .media-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 15px; margin-top: 15px; }
@@ -104,7 +100,6 @@ $allFiles = is_dir($uploadDir) ? array_diff(scandir($uploadDir), ['.', '..']) : 
                         <input type="text" id="download-file" class="input" value="<?= htmlspecialchars($data['download_file'] ?? '') ?>" placeholder="datei.zip">
                         <button class="btn" onclick="openMediaModal('download')"> Wahl </button>
                     </div>
-                    <small style="color: #718096; font-size: 11px;">Erscheint als Download-Box im Artikel.</small>
                 </div>
 
                 <div>
@@ -206,7 +201,7 @@ $allFiles = is_dir($uploadDir) ? array_diff(scandir($uploadDir), ['.', '..']) : 
                 title: document.getElementById('post-title').value,
                 content: input.value,
                 hero_image: document.getElementById('hero-image').value,
-                download_file: document.getElementById('download-file').value, // NEU
+                download_file: document.getElementById('download-file').value,
                 category_id: document.getElementById('post-category').value,
                 status: document.getElementById('post-status').value,
                 is_sticky: document.getElementById('post-sticky').checked ? 1 : 0
