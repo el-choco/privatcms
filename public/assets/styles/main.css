@@ -1,25 +1,122 @@
-:root{
-  --color-primary:#1877f2;
-  --surface:#fff;
-  --surface-2:#f7fafc;
-  --border:#e5e7eb;
-  --text:#111827;
-  --muted:#6b7280;
+/* 1. FARB-VARIABLEN (THEMING) */
+:root {
+  --color-primary: #1877f2;
+  --bg-color: #f0f2f5;
+  --surface: #ffffff;
+  --surface-2: #f7fafc;
+  --text: #1c1e21;
+  --muted: #65676b;
+  --border: #e2e8f0;
+  --header-bg: #101828;
 }
-*{box-sizing:border-box}
-body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:var(--text);background:#eef2f7}
-.container{max-width:1100px;margin:0 auto;padding:0 16px}
-.site-header{background:#101828;color:#fff}
-.site-header .container{display:flex;align-items:center;justify-content:space-between;padding:14px 16px}
-.site-title{margin:0;font-size:20px}
-.btn{display:inline-block;padding:8px 12px;border-radius:8px;background:var(--color-primary);color:#fff;text-decoration:none}
-.btn-sm{padding:6px 10px;font-size:13px}
 
-.article{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px}
-.article-hero{width:100%;display:block;border-radius:12px;margin:8px 0}
-.article-body{line-height:1.65}
-.input{display:block;width:100%;padding:8px;border:1px solid var(--border);border-radius:8px;background:var(--surface)}
-.article-body h1 { font-size: 2rem; margin-bottom: 1rem; }
-.article-body h2 { font-size: 1.5rem; margin-top: 1.5rem; }
+/* Dark Mode Overrides */
+[data-theme="dark"] {
+  --bg-color: #18191a;
+  --surface: #242526;
+  --surface-2: #18191a;
+  --text: #e4e6eb;
+  --muted: #b0b3b8;
+  --border: #3e4042;
+  --header-bg: #242526;
+}
+
+/* 2. BASIS-STYLES */
+* { box-sizing: border-box; }
+
+body { 
+  margin: 0; 
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; 
+  color: var(--text); 
+  background: var(--bg-color);
+  transition: background 0.3s, color 0.3s;
+}
+
+.container { 
+  max-width: 1100px; 
+  margin: 0 auto; 
+  padding: 0 16px; 
+}
+
+/* 3. HEADER & NAVIGATION */
+.site-header { 
+  background: var(--header-bg); 
+  color: #fff; 
+  transition: background 0.3s;
+}
+
+.site-header .container { 
+  display: flex; 
+  align-items: center; 
+  justify-content: space-between; 
+  padding: 14px 16px; 
+}
+
+.site-title { 
+  margin: 0; 
+  font-size: 20px; 
+  text-decoration: none;
+  color: #fff;
+}
+
+/* 4. BUTTONS */
+.btn { 
+  display: inline-block; 
+  padding: 8px 12px; 
+  border-radius: 8px; 
+  background: var(--color-primary); 
+  color: #fff; 
+  text-decoration: none; 
+  border: none; 
+  cursor: pointer; 
+  font-weight: 600;
+  text-align: center;
+  transition: opacity 0.2s;
+}
+
+.btn:hover { opacity: 0.9; }
+.btn-sm { padding: 6px 10px; font-size: 13px; }
+
+/* 5. ARTIKEL & CARDS (NUTZEN VARIABLEN) */
+.article { 
+  background: var(--surface); 
+  border: 1px solid var(--border); 
+  border-radius: 12px; 
+  padding: 16px; 
+  margin-bottom: 20px;
+}
+
+.article-hero { 
+  width: 100%; 
+  display: block; 
+  border-radius: 12px; 
+  margin: 8px 0; 
+}
+
+.article-body { 
+  line-height: 1.65; 
+  color: var(--text);
+}
+
+.article-body h1 { font-size: 2rem; margin-bottom: 1rem; color: var(--text); }
+.article-body h2 { font-size: 1.5rem; margin-top: 1.5rem; color: var(--text); }
 .article-body ul { padding-left: 20px; margin-bottom: 1rem; }
 .article-body p { margin-bottom: 1rem; line-height: 1.6; }
+
+.input { 
+  display: block; 
+  width: 100%; 
+  padding: 10px; 
+  border: 1px solid var(--border); 
+  border-radius: 8px; 
+  background: var(--surface); 
+  color: var(--text);
+  font-size: 14px;
+}
+
+.input:focus {
+  outline: none;
+  border-color: var(--color-primary);
+}
+
+.muted { color: var(--muted); }
