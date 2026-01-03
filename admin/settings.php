@@ -15,16 +15,15 @@ $activeTab = $_GET['tab'] ?? 'general';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (isset($_POST['save_settings'])) {
-        // NEU: SMTP-Felder hinzugefügt
         $text_fields = [
             'blog_title', 'blog_description', 'posts_per_page', 
             'admin_email', 'sender_email', 'sender_name',
-            'smtp_host', 'smtp_port', 'smtp_user', 'smtp_pass' // SMTP
+            'smtp_host', 'smtp_port', 'smtp_user', 'smtp_pass'
         ];
         $checkboxes = [
             'debug_mode', 'error_logging', 'maintenance_mode', 'dark_mode_enabled',
             'email_enabled', 'notify_new_comments', 'notify_comment_approved',
-            'smtp_active' // SMTP Checkbox
+            'smtp_active'
         ];
 
         try {
@@ -42,7 +41,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } catch (Exception $e) { $pdo->rollBack(); $message = '<div class="alert alert-danger">Fehler: '.$e->getMessage().'</div>'; }
     }
 
-    // Backup Download Logik
     if (isset($_POST['backup_action'])) {
         try {
             $action = $_POST['backup_action'];
@@ -65,8 +63,9 @@ include 'header.php';
 ?>
 
 <style>
-    /* Styles wie zuvor */
-    .admin-content { background: #f0f2f5; padding: 20px; min-height: 100vh; }
+    /* WICHTIG: Viel Platz unten lassen (150px), damit man unter den Button scrollen kann */
+    .admin-content { background: #f0f2f5; padding: 20px; min-height: 100vh; padding-bottom: 150px; }
+    
     .tab-nav { display: flex; gap: 5px; margin-bottom: 25px; border-bottom: 1px solid #e2e8f0; background: #fff; padding: 10px 15px 0; border-radius: 8px 8px 0 0; }
     .tab-btn { padding: 12px 20px; border: none; background: none; cursor: pointer; font-weight: 600; color: #718096; border-bottom: 3px solid transparent; transition: 0.2s; font-size: 14px; }
     .tab-btn.active { color: #1877f2; border-bottom-color: #1877f2; }
@@ -77,7 +76,6 @@ include 'header.php';
     .input { width: 100%; padding: 12px; border: 1px solid #cbd5e0; border-radius: 8px; font-size: 14px; box-sizing: border-box; }
     .checkbox-group { display: flex; align-items: center; gap: 15px; cursor: pointer; }
     
-    /* Stats & Actions */
     .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-bottom: 25px; }
     .stat-card { background: #fff; padding: 20px; border-radius: 12px; border: 1px solid #e2e8f0; display: flex; align-items: center; gap: 15px; }
     .stat-icon { font-size: 30px; background: #f7fafc; padding: 10px; border-radius: 10px; }
@@ -88,6 +86,20 @@ include 'header.php';
 
     .tab-content { display: none; }
     .tab-content.active { display: block; }
+    
+    /* Schicke Leiste unten für den Speicher-Button */
+    .save-bar {
+        position: fixed; 
+        bottom: 20px; 
+        right: 40px; /* Etwas Abstand vom Rand */
+        z-index: 1000;
+        background: rgba(255, 255, 255, 0.9);
+        padding: 10px 20px;
+        border-radius: 12px;
+        box-shadow: 0 5px 20px rgba(0,0,0,0.15);
+        border: 1px solid #e2e8f0;
+        backdrop-filter: blur(5px);
+    }
 </style>
 
 <div class="admin-content">
@@ -163,6 +175,14 @@ include 'header.php';
                         <div class="form-group"><label>SMTP Benutzer</label><input type="text" name="smtp_user" value="<?= htmlspecialchars($settings['smtp_user'] ?? '') ?>" class="input"></div>
                         <div class="form-group"><label>SMTP Passwort</label><input type="password" name="smtp_pass" value="<?= htmlspecialchars($settings['smtp_pass'] ?? '') ?>" class="input"></div>
                     </div>
+
+                    <div style="margin-top: 25px; padding: 15px; background: #e7f3ff; border: 1px solid #bad6fa; border-radius: 8px; display: flex; align-items: center; justify-content: space-between;">
+                        <div>
+                            <strong style="color: #1877f2;">Verbindungstest</strong><br>
+                            <span style="font-size: 0.85em; color: #555;">Speichere die Einstellungen, bevor du testest!</span>
+                        </div>
+                        <a href="test_mail.php" target="_blank" style="background: #1877f2; color: white; padding: 10px 20px; text-decoration: none; border-radius: 6px; font-weight: bold; font-size: 14px; box-shadow: 0 2px 5px rgba(24,119,242,0.2);">🚀 Test-Mail senden</a>
+                    </div>
                 </div>
 
                 <div class="settings-card">
@@ -216,8 +236,8 @@ include 'header.php';
                 </div>
             </div>
 
-            <div style="position: sticky; bottom: 20px; text-align: right;">
-                <button type="submit" name="save_settings" class="btn btn-primary" style="padding:15px 50px; font-size:16px; box-shadow: 0 4px 12px rgba(24, 119, 242, 0.3);">💾 Speichern</button>
+            <div class="save-bar">
+                <button type="submit" name="save_settings" class="btn btn-primary" style="padding:10px 40px; font-size:16px;">💾 Speichern</button>
             </div>
         </form>
     </div>
@@ -234,7 +254,6 @@ function showTab(tabId, btn) {
     url.searchParams.set('tab', tabId);
     window.history.pushState({}, '', url);
 }
-// Init Tab
 const urlParams = new URLSearchParams(window.location.search);
 const t = urlParams.get('tab');
 if(t) {
