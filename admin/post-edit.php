@@ -16,7 +16,7 @@ if (!$data) { die("Beitrag nicht gefunden."); }
 
 $categories = $pdo->query("SELECT * FROM categories ORDER BY name ASC")->fetchAll();
 
-// Pfad auf das Haupt-Upload-Verzeichnis angepasst
+// Pfad auf das Haupt-Upload-Verzeichnis
 $uploadDir = __DIR__ . '/../public/uploads/';
 $allFiles = is_dir($uploadDir) ? array_diff(scandir($uploadDir), ['.', '..']) : [];
 ?>
@@ -31,11 +31,13 @@ $allFiles = is_dir($uploadDir) ? array_diff(scandir($uploadDir), ['.', '..']) : 
         .editor-layout { display: grid; grid-template-columns: 1fr 320px; gap: 20px; height: calc(100vh - 120px); }
         .editor-main-card { display: flex; flex-direction: column; background: #fff; border-radius: 8px; border: 1px solid #ddd; overflow: hidden; }
         .sidebar-card { background: #fff; border-radius: 8px; border: 1px solid #ddd; padding: 20px; display: flex; flex-direction: column; gap: 15px; overflow-y: auto; }
-        .toolbar { background: #f8fafc; padding: 10px; border-bottom: 1px solid #ddd; display: flex; gap: 8px; }
+        
+        /* Layout für Split-View */
         .editor-split { display: flex; flex: 1; overflow: hidden; }
         .editor-area, .preview-area { flex: 1; padding: 15px; overflow-y: auto; }
         .editor-area { border-right: 1px solid #ddd; }
         textarea { width: 100%; height: 100%; border: none; outline: none; font-family: monospace; resize: none; font-size: 14px; }
+        
         #mediaModal { display: none; position: fixed; z-index: 10000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); align-items: center; justify-content: center; }
         .modal-content { background: white; padding: 20px; border-radius: 12px; width: 80%; max-width: 900px; max-height: 80vh; overflow-y: auto; }
         .media-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 15px; margin-top: 15px; }
@@ -43,6 +45,54 @@ $allFiles = is_dir($uploadDir) ? array_diff(scandir($uploadDir), ['.', '..']) : 
         .media-item:hover { border-color: #3182ce; transform: scale(1.05); }
         .media-item img { width: 100%; height: 100px; object-fit: cover; display: block; border-radius: 4px; }
         .media-item .file-icon { font-size: 3rem; line-height: 100px; height: 100px; }
+
+        /* --- EDITOR TOOLBAR STYLES --- */
+        .editor-toolbar {
+            background: #f8fafc;
+            border-bottom: 1px solid #cbd5e0;
+            padding: 10px;
+            font-family: sans-serif;
+        }
+        .editor-row {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin-bottom: 8px;
+            flex-wrap: wrap;
+        }
+        .editor-row:last-child { margin-bottom: 0; }
+        
+        .editor-label {
+            font-weight: 800;
+            color: #1877f2;
+            width: 90px;
+            font-size: 11px;
+            text-transform: uppercase;
+            flex-shrink: 0;
+        }
+        .editor-label.green { color: #42b72a; }
+
+        .ed-btn {
+            background: #fff;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            padding: 5px 10px;
+            font-size: 13px;
+            cursor: pointer;
+            color: #444;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 30px;
+            transition: all 0.2s;
+            font-weight: 500;
+        }
+        .ed-btn:hover { background: #f0f2f5; border-color: #bbb; color: #000; }
+        .ed-sep { width: 1px; height: 20px; background: #eee; margin: 0 5px; }
+        
+        /* Icons */
+        .ico-img::before { content: "🖼️"; font-size:12px; }
+        .ico-link::before { content: "🔗"; font-size:12px; }
     </style>
 </head>
 <body class="admin-layout">
@@ -59,11 +109,68 @@ $allFiles = is_dir($uploadDir) ? array_diff(scandir($uploadDir), ['.', '..']) : 
     <main class="admin-content">
         <div class="editor-layout">
             <div class="editor-main-card">
-                <div class="toolbar">
-                    <button class="btn btn-sm" onclick="wrap('**','**')"><b>B</b></button>
-                    <button class="btn btn-sm" onclick="wrap('*','*')"><i>I</i></button>
-                    <button class="btn btn-sm" onclick="insert('### ')">H3</button>
-                    <button class="btn btn-sm" onclick="openMediaModal('content')">🖼️ Bild einfügen</button>
+                
+                <div class="editor-toolbar">
+                    <div class="editor-row">
+                        <span class="editor-label">Markdown:</span>
+                        
+                        <button type="button" class="ed-btn" onclick="insertTag('**', '**')" title="Fett"><b>B</b></button>
+                        <button type="button" class="ed-btn" onclick="insertTag('*', '*')" title="Kursiv"><i>I</i></button>
+                        <button type="button" class="ed-btn" onclick="insertTag('~~', '~~')" title="Durchgestrichen"><s>S</s></button>
+                        
+                        <div class="ed-sep"></div>
+
+                        <button type="button" class="ed-btn" onclick="insertTag('# ', '')">H1</button>
+                        <button type="button" class="ed-btn" onclick="insertTag('## ', '')">H2</button>
+                        <button type="button" class="ed-btn" onclick="insertTag('### ', '')">H3</button>
+
+                        <div class="ed-sep"></div>
+
+                        <button type="button" class="ed-btn ico-link" onclick="insertTag('[Link Text](', ')')" title="Link"></button>
+                        <button type="button" class="ed-btn ico-img" onclick="openMediaModal('content')" title="Bild aus Mediathek einfügen"></button>
+
+                        <div class="ed-sep"></div>
+
+                        <button type="button" class="ed-btn" onclick="insertTag('`', '`')" style="font-family:monospace;">`code`</button>
+                        <button type="button" class="ed-btn" onclick="insertTag('```\n', '\n```')" title="Code Block">...</button>
+
+                        <div class="ed-sep"></div>
+
+                        <button type="button" class="ed-btn" onclick="insertTag('* ', '')">• Liste</button>
+                        <button type="button" class="ed-btn" onclick="insertTag('1. ', '')">1. Liste</button>
+                        <button type="button" class="ed-btn" onclick="insertTag('> ', '')">💬</button>
+                        <button type="button" class="ed-btn" onclick="insertTag('\n---\n', '')">---</button>
+                    </div>
+
+                    <div class="editor-row">
+                        <span class="editor-label green">HTML:</span>
+                        
+                        <button type="button" class="ed-btn" onclick="insertTag('<div style=\'text-align:center\'>', '</div>')">⬆ Center</button>
+                        <button type="button" class="ed-btn" onclick="insertTag('<div style=\'text-align:right\'>', '</div>')">➡ Right</button>
+                        <button type="button" class="ed-btn" onclick="insertTag('<div style=\'text-align:left\'>', '</div>')">⬅ Left</button>
+
+                        <div class="ed-sep"></div>
+
+                        <button type="button" class="ed-btn" onclick="insertTag('<span style=\'color:red\'>', '</span>')">🎨 Farbe</button>
+                        <button type="button" class="ed-btn" onclick="insertTag('<mark>', '</mark>')">✨ Markieren</button>
+
+                        <div class="ed-sep"></div>
+
+                        <button type="button" class="ed-btn" onclick="insertTag('<small>', '</small>')">Small</button>
+                        <button type="button" class="ed-btn" onclick="insertTag('<big>', '</big>')">Large</button>
+
+                        <div class="ed-sep"></div>
+
+                        <button type="button" class="ed-btn" onclick="insertTag('<u>', '</u>')"><u>U</u></button>
+                        <button type="button" class="ed-btn" onclick="insertTag('<sup>', '</sup>')">x²</button>
+                        <button type="button" class="ed-btn" onclick="insertTag('<sub>', '</sub>')">H₂O</button>
+                        
+                        <div class="ed-sep"></div>
+                        
+                        <button type="button" class="ed-btn" onclick="insertTag('<details><summary>Spoiler</summary>', '</details>')">👁 Spoiler</button>
+                        
+                        <button type="button" class="ed-btn" onclick="insertTag('<br>', '')" style="background:#e7f3ff; border-color:#1877f2; color:#1877f2; font-weight:bold;">&lt;br&gt;</button>
+                    </div>
                 </div>
                 <div class="editor-split">
                     <div class="editor-area">
@@ -160,16 +267,26 @@ $allFiles = is_dir($uploadDir) ? array_diff(scandir($uploadDir), ['.', '..']) : 
         input.addEventListener('input', updatePreview);
         updatePreview();
 
-        function wrap(before, after) {
+        // FIX: Scroll-Problem behoben durch Speichern der Scroll-Position
+        function insertTag(open, close = '') {
+            if (!input) return;
+
             const start = input.selectionStart;
             const end = input.selectionEnd;
-            input.value = input.value.substring(0, start) + before + input.value.substring(start, end) + after + input.value.substring(end);
-            updatePreview();
-        }
+            const scrollTop = input.scrollTop; // <--- Scrollposition merken
 
-        function insert(str) {
-            const pos = input.selectionStart;
-            input.value = input.value.substring(0, pos) + str + input.value.substring(pos);
+            const selectedText = input.value.substring(start, end);
+            const replacement = open + selectedText + close;
+
+            input.value = input.value.substring(0, start) + replacement + input.value.substring(end);
+            
+            // Cursor neu setzen
+            const newPos = start + open.length + selectedText.length + (selectedText.length === 0 ? 0 : close.length);
+            input.focus();
+            input.setSelectionRange(newPos, newPos);
+            
+            input.scrollTop = scrollTop; // <--- Scrollposition wiederherstellen
+            
             updatePreview();
         }
 
@@ -186,7 +303,8 @@ $allFiles = is_dir($uploadDir) ? array_diff(scandir($uploadDir), ['.', '..']) : 
             } else if (currentTarget === 'download') {
                 document.getElementById('download-file').value = filename;
             } else {
-                insert(`\n![Bildbeschreibung](/uploads/${filename})\n`);
+                // Fügt Bild Markdown ein und nutzt die sichere insertTag Funktion
+                insertTag(`\n![Bildbeschreibung](/uploads/${filename})\n`, '');
             }
             closeMediaModal();
         }
