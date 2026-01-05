@@ -4,11 +4,17 @@ session_start();
 if (empty($_SESSION['admin'])) { header('Location: /admin/login.php'); exit; }
 
 require_once __DIR__ . '/../src/App/Database.php';
+
 $ini = parse_ini_file(__DIR__ . '/../config/config.ini', true, INI_SCANNER_TYPED) ?: [];
 $pdo = (new App\Database($ini['database'] ?? []))->pdo();
 
+$currentLang = $_SESSION['lang'] ?? 'de';
+$langFile = __DIR__ . '/../config/lang/' . $currentLang . '.ini';
+$t_temp = file_exists($langFile) ? parse_ini_file($langFile, true) : [];
+$pcLang = $t_temp['post_create'] ?? [];
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $title = $_POST['title'] ?? 'Neuer Beitrag';
+    $title = $_POST['title'] ?? ($pcLang['default_title'] ?? 'Neuer Beitrag');
     $slug = strtolower(trim(preg_replace('/[^A-Za-z0-9-]+/', '-', $title), '-'));
     $userId = $_SESSION['admin']['id'] ?? 1; 
 
@@ -19,25 +25,40 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     exit;
 }
 
-include 'header.php';
+require_once 'header.php';
 ?>
 
-<header class="top-header">
-    <h1>Neuen Beitrag erstellen</h1>
-</header>
-
 <div class="content-area">
-    <div class="card" style="max-width: 600px; padding: 30px;">
-        <form method="post">
-            <label style="display:block; margin-bottom: 8px; font-weight: bold; color: #4a5568;">Titel des Beitrags</label>
-            <input type="text" name="title" required placeholder="z.B. Mein erster Urlaub" 
-                   style="width: 100%; padding: 12px; border: 1px solid #e2e8f0; border-radius: 8px; margin-bottom: 20px; font-size: 1rem;">
+    <div style="display: flex; justify-content: center; padding-top: 40px;">
+        <div class="card" style="width: 100%; max-width: 600px; padding: 40px; border-top: 4px solid #3182ce; box-shadow: 0 4px 12px rgba(0,0,0,0.08);">
             
-            <div style="display: flex; gap: 10px;">
-                <button type="submit" class="btn btn-primary">Erstellen & Editor öffnen</button>
-                <a href="posts.php" class="btn">Abbrechen</a>
-            </div>
-        </form>
+            <header style="margin-bottom: 30px; text-align: center;">
+                <h1 style="margin:0; font-size: 1.8rem; color: #1a202c;">
+                    <?= htmlspecialchars($t['post_create']['title'] ?? 'Create Post') ?>
+                </h1>
+            </header>
+
+            <form method="post">
+                <div style="margin-bottom: 25px;">
+                    <label style="display:block; margin-bottom: 10px; font-weight: bold; color: #4a5568; font-size: 1.1rem;">
+                        <?= htmlspecialchars($t['post_create']['label_title'] ?? 'Title') ?>
+                    </label>
+                    <input type="text" name="title" required 
+                           placeholder="<?= htmlspecialchars($t['post_create']['placeholder_title'] ?? '') ?>" 
+                           style="width: 100%; padding: 15px; border: 2px solid #e2e8f0; border-radius: 8px; font-size: 1.1rem; outline: none; transition: border-color 0.2s;"
+                           onfocus="this.style.borderColor='#3182ce'" onblur="this.style.borderColor='#e2e8f0'">
+                </div>
+                
+                <div style="display: flex; gap: 15px; flex-direction: column;">
+                    <button type="submit" class="btn btn-primary" style="padding: 15px; font-size: 1.1rem; justify-content: center;">
+                        <?= htmlspecialchars($t['post_create']['btn_create'] ?? 'Create') ?>
+                    </button>
+                    <a href="posts.php" class="btn" style="text-align: center; background: #edf2f7; color: #4a5568; padding: 15px; font-size: 1rem;">
+                        <?= htmlspecialchars($t['post_create']['btn_cancel'] ?? 'Cancel') ?>
+                    </a>
+                </div>
+            </form>
+        </div>
     </div>
 </div>
 

@@ -27,7 +27,7 @@ if ($data && isset($data['id'])) {
             $data['title'],
             $data['content'],
             $data['hero_image'] ?: null,
-            $data['download_file'] ?: null, // NEU
+            $data['download_file'] ?: null,
             $data['category_id'] ?: null,
             $data['status'],
             (int)$data['is_sticky'],

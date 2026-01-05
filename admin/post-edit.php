@@ -7,6 +7,11 @@ require_once __DIR__ . '/../src/App/Database.php';
 $ini = parse_ini_file(__DIR__ . '/../config/config.ini', true, INI_SCANNER_TYPED) ?: [];
 $pdo = (new App\Database($ini['database'] ?? []))->pdo();
 
+$currentLang = $_SESSION['lang'] ?? 'de';
+$langFile = __DIR__ . '/../config/lang/' . $currentLang . '.ini';
+$t_temp = file_exists($langFile) ? parse_ini_file($langFile, true) : [];
+$peLang = $t_temp['post_edit'] ?? [];
+
 $id = (int)($_GET['id'] ?? 0);
 $stmt = $pdo->prepare("SELECT * FROM posts WHERE id = ?");
 $stmt->execute([$id]);
@@ -16,15 +21,14 @@ if (!$data) { die("Beitrag nicht gefunden."); }
 
 $categories = $pdo->query("SELECT * FROM categories ORDER BY name ASC")->fetchAll();
 
-// Pfad auf das Haupt-Upload-Verzeichnis angepasst
 $uploadDir = __DIR__ . '/../public/uploads/';
 $allFiles = is_dir($uploadDir) ? array_diff(scandir($uploadDir), ['.', '..']) : [];
 ?>
 <!DOCTYPE html>
-<html lang="de">
+<html lang="<?= htmlspecialchars($currentLang) ?>">
 <head>
     <meta charset="utf-8">
-    <title>Editor - <?= htmlspecialchars($data['title']) ?></title>
+    <title><?= htmlspecialchars($peLang['title_prefix'] ?? 'Editor -') ?> <?= htmlspecialchars($data['title']) ?></title>
     <link href="/admin/assets/styles/admin.css" rel="stylesheet">
     
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
@@ -36,7 +40,6 @@ $allFiles = is_dir($uploadDir) ? array_diff(scandir($uploadDir), ['.', '..']) : 
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 
     <style>
-        /* ORIGINAL LAYOUT STYLES (Beibehalten) */
         .editor-layout { display: grid; grid-template-columns: 1fr 320px; gap: 20px; height: calc(100vh - 120px); }
         .editor-main-card { display: flex; flex-direction: column; background: #fff; border-radius: 8px; border: 1px solid #ddd; overflow: hidden; }
         .sidebar-card { background: #fff; border-radius: 8px; border: 1px solid #ddd; padding: 20px; display: flex; flex-direction: column; gap: 15px; overflow-y: auto; }
@@ -46,7 +49,6 @@ $allFiles = is_dir($uploadDir) ? array_diff(scandir($uploadDir), ['.', '..']) : 
         .editor-area { border-right: 1px solid #ddd; }
         textarea { width: 100%; height: 100%; border: none; outline: none; font-family: monospace; resize: none; font-size: 14px; }
         
-        /* Modal Styles (Original) */
         #mediaModal { display: none; position: fixed; z-index: 10000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); align-items: center; justify-content: center; }
         .modal-content { background: white; padding: 20px; border-radius: 12px; width: 80%; max-width: 900px; max-height: 80vh; overflow-y: auto; }
         .media-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 15px; margin-top: 15px; }
@@ -55,7 +57,6 @@ $allFiles = is_dir($uploadDir) ? array_diff(scandir($uploadDir), ['.', '..']) : 
         .media-item img { width: 100%; height: 100px; object-fit: cover; display: block; border-radius: 4px; }
         .media-item .file-icon { font-size: 3rem; line-height: 100px; height: 100px; }
 
-        /* Titel Input direkt über dem Editor */
         #post-title {
             width: 100%;
             padding: 15px;
@@ -68,10 +69,9 @@ $allFiles = is_dir($uploadDir) ? array_diff(scandir($uploadDir), ['.', '..']) : 
             background: #fff;
         }
 
-        /* Vorschau Styling für Monokai Highlighting */
         .preview-area pre {
-            background: #23241f; /* Dunkler Hintergrund */
-            color: #f8f8f2;      /* Helle Schrift */
+            background: #23241f;
+            color: #f8f8f2;
             padding: 1em;
             border-radius: 6px;
             overflow-x: auto;
@@ -81,7 +81,6 @@ $allFiles = is_dir($uploadDir) ? array_diff(scandir($uploadDir), ['.', '..']) : 
             font-size: 14px;
         }
 
-        /* Umfangreiche Toolbar Styles */
         .editor-toolbar {
             background: #f8fafc;
             border-bottom: 1px solid #cbd5e0;
@@ -125,11 +124,9 @@ $allFiles = is_dir($uploadDir) ? array_diff(scandir($uploadDir), ['.', '..']) : 
         .ed-btn:hover { background: #f0f2f5; border-color: #bbb; color: #000; }
         .ed-sep { width: 1px; height: 20px; background: #eee; margin: 0 5px; }
         
-        /* Icons */
         .ico-img::before { content: "🖼️"; font-size:12px; }
         .ico-link::before { content: "🔗"; font-size:12px; }
 
-        /* NEU: SMILEY POPOVER STYLES */
         .smiley-popover {
             display: none;
             position: absolute;
@@ -157,7 +154,6 @@ $allFiles = is_dir($uploadDir) ? array_diff(scandir($uploadDir), ['.', '..']) : 
         }
         .smiley-item:hover { background: #f0f2f5; }
 
-        /* NEU: ICON MODAL STYLES */
         #iconModal { display: none; position: fixed; z-index: 10001; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); align-items: center; justify-content: center; }
         .icon-search-bar { width: 100%; padding: 10px; margin-bottom: 15px; border: 1px solid #ddd; border-radius: 6px; box-sizing: border-box; font-size: 16px; }
         .icon-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(60px, 1fr)); gap: 10px; max-height: 60vh; overflow-y: auto; }
@@ -172,11 +168,11 @@ $allFiles = is_dir($uploadDir) ? array_diff(scandir($uploadDir), ['.', '..']) : 
 </head>
 <body class="admin-layout">
     <aside class="admin-sidebar">
-        <h2 class="brand">PiperBlog</h2>
+        <h2 class="brand"><?= htmlspecialchars($ini['app']['name'] ?? 'Admin') ?></h2>
         <nav>
-            <a href="/admin/posts.php">← Zurück</a>
+            <a href="/admin/posts.php"><?= htmlspecialchars($peLang['back_btn'] ?? 'Back') ?></a>
             <div style="margin-top: 20px; padding: 0 15px;">
-                <button id="save-btn" class="btn btn-primary" style="width: 100%;">Speichern</button>
+                <button id="save-btn" class="btn btn-primary" style="width: 100%;"><?= htmlspecialchars($peLang['save_btn'] ?? 'Save') ?></button>
             </div>
         </nav>
     </aside>
@@ -185,48 +181,48 @@ $allFiles = is_dir($uploadDir) ? array_diff(scandir($uploadDir), ['.', '..']) : 
         <div class="editor-layout">
             <div class="editor-main-card">
                 
-                <input type="text" id="post-title" value="<?= htmlspecialchars($data['title']) ?>" placeholder="Hier Titel eingeben...">
+                <input type="text" id="post-title" value="<?= htmlspecialchars($data['title']) ?>" placeholder="<?= htmlspecialchars($peLang['title_placeholder'] ?? '') ?>">
 
                 <div class="editor-toolbar">
                     <div class="editor-row">
-                        <span class="editor-label">Markdown:</span>
-                        <button type="button" class="ed-btn" onclick="insertTag('**', '**')" title="Fett"><b>B</b></button>
-                        <button type="button" class="ed-btn" onclick="insertTag('*', '*')" title="Kursiv"><i>I</i></button>
-                        <button type="button" class="ed-btn" onclick="insertTag('~~', '~~')" title="Durchgestrichen"><s>S</s></button>
+                        <span class="editor-label"><?= htmlspecialchars($peLang['label_markdown'] ?? 'Markdown:') ?></span>
+                        <button type="button" class="ed-btn" onclick="insertTag('**', '**')" title="<?= htmlspecialchars($peLang['tooltip_bold'] ?? 'Bold') ?>"><b>B</b></button>
+                        <button type="button" class="ed-btn" onclick="insertTag('*', '*')" title="<?= htmlspecialchars($peLang['tooltip_italic'] ?? 'Italic') ?>"><i>I</i></button>
+                        <button type="button" class="ed-btn" onclick="insertTag('~~', '~~')" title="<?= htmlspecialchars($peLang['tooltip_strike'] ?? 'Strike') ?>"><s>S</s></button>
                         <div class="ed-sep"></div>
                         <button type="button" class="ed-btn" onclick="insertTag('# ', '')">H1</button>
                         <button type="button" class="ed-btn" onclick="insertTag('## ', '')">H2</button>
                         <button type="button" class="ed-btn" onclick="insertTag('### ', '')">H3</button>
                         <div class="ed-sep"></div>
-                        <button type="button" class="ed-btn ico-link" onclick="insertTag('[Link Text](', ')')" title="Link"></button>
-                        <button type="button" class="ed-btn ico-img" onclick="openMediaModal('content')" title="Bild"></button>
+                        <button type="button" class="ed-btn ico-link" onclick="insertTag('[Link Text](', ')')" title="<?= htmlspecialchars($peLang['tooltip_link'] ?? 'Link') ?>"></button>
+                        <button type="button" class="ed-btn ico-img" onclick="openMediaModal('content')" title="<?= htmlspecialchars($peLang['tooltip_image'] ?? 'Image') ?>"></button>
                         <div class="ed-sep"></div>
                         <button type="button" class="ed-btn" onclick="insertTag('`', '`')" style="font-family:monospace;">`code`</button>
-                        <button type="button" class="ed-btn" onclick="insertTag('```\n', '\n```')" title="Code Block">...</button>
+                        <button type="button" class="ed-btn" onclick="insertTag('```\n', '\n```')" title="<?= htmlspecialchars($peLang['tooltip_code_block'] ?? 'Code') ?>">...</button>
                         
                         <div class="ed-sep"></div>
                         <div style="position:relative;">
-                            <button type="button" class="ed-btn" onclick="toggleSmileyPicker(this)" title="Emojis">😀</button>
+                            <button type="button" class="ed-btn" onclick="toggleSmileyPicker(this)" title="<?= htmlspecialchars($peLang['tooltip_emojis'] ?? 'Emojis') ?>">😀</button>
                             <div id="smileyPopover" class="smiley-popover">
                                 <div id="smileyGrid" class="smiley-grid"></div>
                             </div>
                         </div>
-                        <button type="button" class="ed-btn" onclick="openIconModal()" title="FontAwesome Icons">🏁 FA Icons</button>
+                        <button type="button" class="ed-btn" onclick="openIconModal()" title="<?= htmlspecialchars($peLang['modal_icons'] ?? 'Icons') ?>"><?= htmlspecialchars($peLang['btn_fa_icons'] ?? 'FA Icons') ?></button>
 
                         <div class="ed-sep"></div>
-                        <button type="button" class="ed-btn" onclick="insertTag('* ', '')">• Liste</button>
-                        <button type="button" class="ed-btn" onclick="insertTag('1. ', '')">1. Liste</button>
+                        <button type="button" class="ed-btn" onclick="insertTag('* ', '')"><?= htmlspecialchars($peLang['btn_list_bullet'] ?? '• List') ?></button>
+                        <button type="button" class="ed-btn" onclick="insertTag('1. ', '')"><?= htmlspecialchars($peLang['btn_list_number'] ?? '1. List') ?></button>
                         <button type="button" class="ed-btn" onclick="insertTag('> ', '')">💬</button>
                         <button type="button" class="ed-btn" onclick="insertTag('\n---\n', '')">---</button>
                     </div>
                     <div class="editor-row">
-                        <span class="editor-label green">HTML:</span>
-                        <button type="button" class="ed-btn" onclick="insertTag('<div style=\'text-align:center\'>', '</div>')">⬆ Center</button>
-                        <button type="button" class="ed-btn" onclick="insertTag('<div style=\'text-align:right\'>', '</div>')">➡ Right</button>
-                        <button type="button" class="ed-btn" onclick="insertTag('<div style=\'text-align:left\'>', '</div>')">⬅ Left</button>
+                        <span class="editor-label green"><?= htmlspecialchars($peLang['label_html'] ?? 'HTML:') ?></span>
+                        <button type="button" class="ed-btn" onclick="insertTag('<div style=\'text-align:center\'>', '</div>')"><?= htmlspecialchars($peLang['btn_center'] ?? 'Center') ?></button>
+                        <button type="button" class="ed-btn" onclick="insertTag('<div style=\'text-align:right\'>', '</div>')"><?= htmlspecialchars($peLang['btn_right'] ?? 'Right') ?></button>
+                        <button type="button" class="ed-btn" onclick="insertTag('<div style=\'text-align:left\'>', '</div>')"><?= htmlspecialchars($peLang['btn_left'] ?? 'Left') ?></button>
                         <div class="ed-sep"></div>
-                        <button type="button" class="ed-btn" onclick="insertTag('<span style=\'color:red\'>', '</span>')">🎨 Farbe</button>
-                        <button type="button" class="ed-btn" onclick="insertTag('<mark>', '</mark>')">✨ Markieren</button>
+                        <button type="button" class="ed-btn" onclick="insertTag('<span style=\'color:red\'>', '</span>')"><?= htmlspecialchars($peLang['btn_color'] ?? 'Color') ?></button>
+                        <button type="button" class="ed-btn" onclick="insertTag('<mark>', '</mark>')"><?= htmlspecialchars($peLang['btn_mark'] ?? 'Mark') ?></button>
                         <div class="ed-sep"></div>
                         <button type="button" class="ed-btn" onclick="insertTag('<small>', '</small>')">Small</button>
                         <button type="button" class="ed-btn" onclick="insertTag('<big>', '</big>')">Large</button>
@@ -250,30 +246,30 @@ $allFiles = is_dir($uploadDir) ? array_diff(scandir($uploadDir), ['.', '..']) : 
 
             <div class="sidebar-card">
                 <div>
-                    <label style="font-weight: bold; font-size: 12px;">Status</label>
+                    <label style="font-weight: bold; font-size: 12px;"><?= htmlspecialchars($peLang['label_status'] ?? 'Status') ?></label>
                     <select id="post-status" class="input">
-                        <option value="draft" <?= $data['status'] === 'draft' ? 'selected' : '' ?>>Entwurf</option>
-                        <option value="published" <?= $data['status'] === 'published' ? 'selected' : '' ?>>Veröffentlicht</option>
+                        <option value="draft" <?= $data['status'] === 'draft' ? 'selected' : '' ?>><?= htmlspecialchars($peLang['status_draft'] ?? 'Draft') ?></option>
+                        <option value="published" <?= $data['status'] === 'published' ? 'selected' : '' ?>><?= htmlspecialchars($peLang['status_published'] ?? 'Published') ?></option>
                     </select>
                 </div>
 
                 <div style="display: flex; align-items: center; gap: 10px;">
                     <input type="checkbox" id="post-sticky" <?= ($data['is_sticky'] ?? 0) ? 'checked' : '' ?>>
-                    <label for="post-sticky" style="font-weight: bold; font-size: 12px; cursor: pointer;">📌 Beitrag anheften</label>
+                    <label for="post-sticky" style="font-weight: bold; font-size: 12px; cursor: pointer;"><?= htmlspecialchars($peLang['label_sticky'] ?? 'Pin post') ?></label>
                 </div>
 
                 <div style="border-top: 1px solid #eee; padding-top: 15px; margin-top: 10px;">
-                    <label style="font-weight: bold; font-size: 12px;">Einleitung (Auszug)</label>
-                    <small style="display:block; color:#666; margin-bottom:5px;">Erscheint auf der Startseite</small>
+                    <label style="font-weight: bold; font-size: 12px;"><?= htmlspecialchars($peLang['label_excerpt'] ?? 'Excerpt') ?></label>
+                    <small style="display:block; color:#666; margin-bottom:5px;"><?= htmlspecialchars($peLang['hint_excerpt'] ?? '') ?></small>
                     <textarea id="post-excerpt" class="input" rows="4" style="resize:vertical; min-height:80px; font-family:inherit; width: 100%; box-sizing: border-box; padding: 8px; border: 1px solid #cbd5e0; border-radius: 6px;"><?= htmlspecialchars($data['excerpt'] ?? '') ?></textarea>
                 </div>
 
                 <hr style="margin: 15px 0; border: 0; border-top: 1px solid #eee;">
 
                 <div>
-                    <label style="font-weight: bold; font-size: 12px;">Kategorie</label>
+                    <label style="font-weight: bold; font-size: 12px;"><?= htmlspecialchars($peLang['label_category'] ?? 'Category') ?></label>
                     <select id="post-category" class="input">
-                        <option value="">Keine Kategorie</option>
+                        <option value=""><?= htmlspecialchars($peLang['opt_no_category'] ?? 'No Category') ?></option>
                         <?php foreach($categories as $cat): ?>
                             <option value="<?= $cat['id'] ?>" <?= $cat['id'] == $data['category_id'] ? 'selected' : '' ?>>
                                 <?= htmlspecialchars($cat['name']) ?>
@@ -283,25 +279,25 @@ $allFiles = is_dir($uploadDir) ? array_diff(scandir($uploadDir), ['.', '..']) : 
                 </div>
 
                 <div>
-                    <label style="font-weight: bold; font-size: 12px;">Beitragsbild (Hero)</label>
+                    <label style="font-weight: bold; font-size: 12px;"><?= htmlspecialchars($peLang['label_hero'] ?? 'Hero Image') ?></label>
                     <div style="display: flex; gap: 5px; margin-top: 5px;">
                         <input type="text" id="hero-image" class="input" value="<?= htmlspecialchars($data['hero_image'] ?? '') ?>" placeholder="bild.jpg">
-                        <button class="btn" onclick="openMediaModal('hero')"> Wahl </button>
+                        <button class="btn" onclick="openMediaModal('hero')"> <?= htmlspecialchars($peLang['btn_select'] ?? 'Select') ?> </button>
                     </div>
                     <div id="hero-preview" style="margin-top: 10px; height: 100px; background: #f1f5f9; border-radius: 6px; display: flex; align-items: center; justify-content: center; overflow: hidden;">
                         <?php if($data['hero_image']): ?>
                             <img src="/uploads/<?= htmlspecialchars($data['hero_image']) ?>" style="width: 100%; height: 100%; object-fit: cover;">
                         <?php else: ?>
-                            <span style="color: #94a3b8; font-size: 12px;">Kein Bild</span>
+                            <span style="color: #94a3b8; font-size: 12px;"><?= htmlspecialchars($peLang['no_image'] ?? 'No Image') ?></span>
                         <?php endif; ?>
                     </div>
                 </div>
 
                 <div>
-                    <label style="font-weight: bold; font-size: 12px;">Download Datei (Optional)</label>
+                    <label style="font-weight: bold; font-size: 12px;"><?= htmlspecialchars($peLang['label_download'] ?? 'Download File') ?></label>
                     <div style="display: flex; gap: 5px; margin-top: 5px;">
                         <input type="text" id="download-file" class="input" value="<?= htmlspecialchars($data['download_file'] ?? '') ?>" placeholder="datei.zip">
-                        <button class="btn" onclick="openMediaModal('download')"> Wahl </button>
+                        <button class="btn" onclick="openMediaModal('download')"> <?= htmlspecialchars($peLang['btn_select'] ?? 'Select') ?> </button>
                     </div>
                 </div>
             </div>
@@ -311,8 +307,8 @@ $allFiles = is_dir($uploadDir) ? array_diff(scandir($uploadDir), ['.', '..']) : 
     <div id="mediaModal">
         <div class="modal-content">
             <div style="display: flex; justify-content: space-between; align-items: center;">
-                <h3 style="margin: 0;">Mediathek</h3>
-                <button class="btn" onclick="closeMediaModal()">Schließen</button>
+                <h3 style="margin: 0;"><?= htmlspecialchars($peLang['modal_media'] ?? 'Media') ?></h3>
+                <button class="btn" onclick="closeMediaModal()"><?= htmlspecialchars($peLang['btn_close'] ?? 'Close') ?></button>
             </div>
             <div class="media-grid">
                 <?php foreach($allFiles as $f): ?>
@@ -332,24 +328,28 @@ $allFiles = is_dir($uploadDir) ? array_diff(scandir($uploadDir), ['.', '..']) : 
     <div id="iconModal">
         <div class="modal-content">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-                <h3 style="margin: 0;">FontAwesome Icon Picker</h3>
-                <button class="btn" onclick="closeIconModal()">Schließen</button>
+                <h3 style="margin: 0;"><?= htmlspecialchars($peLang['modal_icons'] ?? 'Icons') ?></h3>
+                <button class="btn" onclick="closeIconModal()"><?= htmlspecialchars($peLang['btn_close'] ?? 'Close') ?></button>
             </div>
-            <input type="text" id="iconSearch" class="icon-search-bar" placeholder="Suche nach Icons (z.B. user, car, arrow)..." onkeyup="filterIcons()">
+            <input type="text" id="iconSearch" class="icon-search-bar" placeholder="<?= htmlspecialchars($peLang['placeholder_icons'] ?? 'Search...') ?>" onkeyup="filterIcons()">
             <div id="iconGrid" class="icon-grid">
                 </div>
         </div>
     </div>
 
     <script>
+        const txtSaving = "<?= htmlspecialchars($peLang['saving'] ?? 'Saving...') ?>";
+        const txtSaved = "<?= htmlspecialchars($peLang['saved'] ?? 'Saved') ?>";
+        const txtSave = "<?= htmlspecialchars($peLang['save_btn'] ?? 'Save') ?>";
+        const txtError = "<?= htmlspecialchars($peLang['error_prefix'] ?? 'Error: ') ?>";
+        const txtNetworkError = "<?= htmlspecialchars($peLang['error_network'] ?? 'Network Error') ?>";
+
         const input = document.getElementById('markdown-input');
         const preview = document.getElementById('preview-box');
         let currentTarget = 'hero'; 
 
         function updatePreview() { 
-            // Markdown zu HTML
             preview.innerHTML = marked.parse(input.value);
-            // Highlight.js anwenden, wenn geladen
             if(window.hljs) {
                 hljs.highlightAll();
             }
@@ -358,29 +358,26 @@ $allFiles = is_dir($uploadDir) ? array_diff(scandir($uploadDir), ['.', '..']) : 
         input.addEventListener('input', updatePreview);
         setTimeout(updatePreview, 100);
 
-        // Verbesserte Insert-Funktion mit Scroll-Fix
         function insertTag(open, close = '') {
             if (!input) return;
 
             const start = input.selectionStart;
             const end = input.selectionEnd;
-            const scrollTop = input.scrollTop; // Position merken
+            const scrollTop = input.scrollTop;
 
             const selectedText = input.value.substring(start, end);
             const replacement = open + selectedText + close;
 
             input.value = input.value.substring(0, start) + replacement + input.value.substring(end);
             
-            // Cursor neu setzen
             const newPos = start + open.length + selectedText.length + (selectedText.length === 0 ? 0 : close.length);
             input.focus();
             input.setSelectionRange(newPos, newPos);
             
-            input.scrollTop = scrollTop; // Position wiederherstellen
+            input.scrollTop = scrollTop;
             updatePreview();
         }
 
-        // Alte Wrapper für Kompatibilität
         function wrap(before, after) { insertTag(before, after); }
         function insert(str) { insertTag(str, ''); }
 
@@ -402,7 +399,6 @@ $allFiles = is_dir($uploadDir) ? array_diff(scandir($uploadDir), ['.', '..']) : 
             closeMediaModal();
         }
 
-        /* --- SMILEY PICKER LOGIC --- */
         const smileys = [
             "😀","😃","😄","😁","😆","😅","😂","🤣","😊","😇","🙂","🙃","😉","😌","😍","🥰","😘","😗","😙","😚","😋","😛","😝","😜","🤪","🤨","🧐","🤓","😎","🤩","🥳","😏","😒","😞","😔","😟","😕","🙁","☹️","😣","😖","😫","😩","🥺","😢","😭","😤","😠","😡","🤬","🤯","😳","🥵","🥶","😱","😨","😰","😥","😓","🤗","🤔","🤭","🤫","🤥","😶","😐","😑","😬","🙄","😯","😦","😧","😮","😲","🥱","😴","🤤","😪","😵","🤐","🥴","🤢","🤮","🤧","😷","🤒","🤕","🤑","🤠","😈","👿","👹","👺","🤡","💩","👻","💀","👽","👾","🤖","🎃","😺","😸","😹","😻","😼","😽","🙀","😿","😾","🤲","👐","🙌","👏","🤝","👍","👎","👊","✊","🤛","🤜","🤞","✌️","🤟","🤘","👌","🤏","👈","👉","👆","👇","☝️","✋","🤚","🖐","🖖","👋","🤙","💪","🧠","🦷","🦴","👀","👁","👄","💋","🦶","🦵","👃","👂","🦻","👣","🔥","💥","✨","🌟","💫","❤️","🧡","💛","💚","💙","💜","🖤","🤍","🤎","💔","❣️","💕","💞","💓","💗","💖","💘","💝","💟"
         ];
@@ -422,23 +418,19 @@ $allFiles = is_dir($uploadDir) ? array_diff(scandir($uploadDir), ['.', '..']) : 
                 pop.style.display = 'none';
             } else {
                 pop.style.display = 'block';
-                // Positionierung
                 pop.style.top = (btn.offsetTop + btn.offsetHeight + 5) + 'px';
                 pop.style.left = btn.offsetLeft + 'px';
             }
         }
         
-        // Klick außerhalb schließt Picker
         document.addEventListener('click', function(e) {
             const pop = document.getElementById('smileyPopover');
-            const btn = document.querySelector('button[title="Emojis"]');
+            const btn = document.querySelector('button[title="<?= htmlspecialchars($peLang['tooltip_emojis'] ?? 'Emojis') ?>"]');
             if(pop.style.display === 'block' && !pop.contains(e.target) && e.target !== btn) {
                 pop.style.display = 'none';
             }
         });
 
-        /* --- ICON PICKER LOGIC --- */
-        // Eine Auswahl von ~200 nützlichen FA Icons
         const icons = [
             "fa-solid fa-user", "fa-regular fa-user", "fa-solid fa-users", "fa-solid fa-user-plus", "fa-solid fa-house", "fa-solid fa-magnifying-glass",
             "fa-solid fa-bars", "fa-solid fa-envelope", "fa-regular fa-envelope", "fa-solid fa-heart", "fa-regular fa-heart", "fa-solid fa-star",
@@ -496,7 +488,7 @@ $allFiles = is_dir($uploadDir) ? array_diff(scandir($uploadDir), ['.', '..']) : 
 
         function openIconModal() {
             document.getElementById('iconModal').style.display = 'flex';
-            renderIcons(); // Liste rendern
+            renderIcons(); 
             document.getElementById('iconSearch').focus();
         }
         function closeIconModal() { document.getElementById('iconModal').style.display = 'none'; }
@@ -506,16 +498,15 @@ $allFiles = is_dir($uploadDir) ? array_diff(scandir($uploadDir), ['.', '..']) : 
             renderIcons(val);
         }
 
-        /* --- SAVE LOGIC (Original) --- */
         document.getElementById('save-btn').addEventListener('click', function() {
             const btn = this;
             btn.disabled = true;
-            btn.innerText = 'Speichere...';
+            btn.innerText = txtSaving;
 
             const payload = {
                 id: <?= $id ?>,
                 title: document.getElementById('post-title').value,
-                excerpt: document.getElementById('post-excerpt').value, // Auszug
+                excerpt: document.getElementById('post-excerpt').value,
                 content: input.value,
                 hero_image: document.getElementById('hero-image').value,
                 download_file: document.getElementById('download-file').value,
@@ -532,11 +523,11 @@ $allFiles = is_dir($uploadDir) ? array_diff(scandir($uploadDir), ['.', '..']) : 
             .then(res => res.json())
             .then(data => {
                 if(data.status === 'ok') {
-                    btn.innerText = '✅ Gespeichert';
-                    setTimeout(() => { btn.innerText = 'Speichern'; btn.disabled = false; }, 1500);
-                } else { alert('Fehler: ' + data.error); btn.disabled = false; }
+                    btn.innerText = txtSaved;
+                    setTimeout(() => { btn.innerText = txtSave; btn.disabled = false; }, 1500);
+                } else { alert(txtError + data.error); btn.disabled = false; }
             })
-            .catch(err => { alert('Netzwerkfehler'); btn.disabled = false; });
+            .catch(err => { alert(txtNetworkError); btn.disabled = false; });
         });
     </script>
 </body>
