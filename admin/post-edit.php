@@ -16,7 +16,7 @@ if (!$data) { die("Beitrag nicht gefunden."); }
 
 $categories = $pdo->query("SELECT * FROM categories ORDER BY name ASC")->fetchAll();
 
-// Pfad auf das Haupt-Upload-Verzeichnis
+// Pfad auf das Haupt-Upload-Verzeichnis angepasst
 $uploadDir = __DIR__ . '/../public/uploads/';
 $allFiles = is_dir($uploadDir) ? array_diff(scandir($uploadDir), ['.', '..']) : [];
 ?>
@@ -34,6 +34,7 @@ $allFiles = is_dir($uploadDir) ? array_diff(scandir($uploadDir), ['.', '..']) : 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/dockerfile.min.js"></script>
 
     <style>
+        /* ORIGINAL LAYOUT STYLES (Beibehalten) */
         .editor-layout { display: grid; grid-template-columns: 1fr 320px; gap: 20px; height: calc(100vh - 120px); }
         .editor-main-card { display: flex; flex-direction: column; background: #fff; border-radius: 8px; border: 1px solid #ddd; overflow: hidden; }
         .sidebar-card { background: #fff; border-radius: 8px; border: 1px solid #ddd; padding: 20px; display: flex; flex-direction: column; gap: 15px; overflow-y: auto; }
@@ -43,19 +44,7 @@ $allFiles = is_dir($uploadDir) ? array_diff(scandir($uploadDir), ['.', '..']) : 
         .editor-area { border-right: 1px solid #ddd; }
         textarea { width: 100%; height: 100%; border: none; outline: none; font-family: monospace; resize: none; font-size: 14px; }
         
-        /* VORSCHAU STYLING (Monokai Dark Background) */
-        .preview-area pre {
-            background: #23241f;
-            color: #f8f8f2;
-            padding: 1em;
-            border-radius: 6px;
-            overflow-x: auto;
-        }
-        .preview-area code {
-            font-family: 'Fira Code', Consolas, monospace;
-            font-size: 14px;
-        }
-        
+        /* Modal Styles (Original) */
         #mediaModal { display: none; position: fixed; z-index: 10000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); align-items: center; justify-content: center; }
         .modal-content { background: white; padding: 20px; border-radius: 12px; width: 80%; max-width: 900px; max-height: 80vh; overflow-y: auto; }
         .media-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 15px; margin-top: 15px; }
@@ -64,7 +53,33 @@ $allFiles = is_dir($uploadDir) ? array_diff(scandir($uploadDir), ['.', '..']) : 
         .media-item img { width: 100%; height: 100px; object-fit: cover; display: block; border-radius: 4px; }
         .media-item .file-icon { font-size: 3rem; line-height: 100px; height: 100px; }
 
-        /* --- NEUE TOOLBAR STYLES --- */
+        /* NEU: Titel Input direkt über dem Editor */
+        #post-title {
+            width: 100%;
+            padding: 12px 15px;
+            font-size: 18px;
+            font-weight: bold;
+            border: none;
+            border-bottom: 1px solid #eee;
+            outline: none;
+            box-sizing: border-box;
+            background: #fff;
+        }
+
+        /* NEU: Vorschau Styling für Monokai Highlighting */
+        .preview-area pre {
+            background: #23241f; /* Dunkler Hintergrund */
+            color: #f8f8f2;      /* Helle Schrift */
+            padding: 1em;
+            border-radius: 6px;
+            overflow-x: auto;
+        }
+        .preview-area code {
+            font-family: 'Fira Code', Consolas, monospace;
+            font-size: 14px;
+        }
+
+        /* NEU: Umfangreiche Toolbar Styles */
         .editor-toolbar {
             background: #f8fafc;
             border-bottom: 1px solid #cbd5e0;
@@ -108,7 +123,7 @@ $allFiles = is_dir($uploadDir) ? array_diff(scandir($uploadDir), ['.', '..']) : 
         .ed-btn:hover { background: #f0f2f5; border-color: #bbb; color: #000; }
         .ed-sep { width: 1px; height: 20px; background: #eee; margin: 0 5px; }
         
-        /* Icons via CSS (Simuliert) */
+        /* Icons */
         .ico-img::before { content: "🖼️"; font-size:12px; }
         .ico-link::before { content: "🔗"; font-size:12px; }
     </style>
@@ -128,68 +143,51 @@ $allFiles = is_dir($uploadDir) ? array_diff(scandir($uploadDir), ['.', '..']) : 
         <div class="editor-layout">
             <div class="editor-main-card">
                 
+                <input type="text" id="post-title" value="<?= htmlspecialchars($data['title']) ?>" placeholder="Hier Titel eingeben...">
+
                 <div class="editor-toolbar">
                     <div class="editor-row">
                         <span class="editor-label">Markdown:</span>
-                        
                         <button type="button" class="ed-btn" onclick="insertTag('**', '**')" title="Fett"><b>B</b></button>
                         <button type="button" class="ed-btn" onclick="insertTag('*', '*')" title="Kursiv"><i>I</i></button>
                         <button type="button" class="ed-btn" onclick="insertTag('~~', '~~')" title="Durchgestrichen"><s>S</s></button>
-                        
                         <div class="ed-sep"></div>
-
                         <button type="button" class="ed-btn" onclick="insertTag('# ', '')">H1</button>
                         <button type="button" class="ed-btn" onclick="insertTag('## ', '')">H2</button>
                         <button type="button" class="ed-btn" onclick="insertTag('### ', '')">H3</button>
-
                         <div class="ed-sep"></div>
-
                         <button type="button" class="ed-btn ico-link" onclick="insertTag('[Link Text](', ')')" title="Link"></button>
                         <button type="button" class="ed-btn ico-img" onclick="openMediaModal('content')" title="Bild"></button>
-
                         <div class="ed-sep"></div>
-
                         <button type="button" class="ed-btn" onclick="insertTag('`', '`')" style="font-family:monospace;">`code`</button>
                         <button type="button" class="ed-btn" onclick="insertTag('```\n', '\n```')" title="Code Block">...</button>
-
                         <div class="ed-sep"></div>
-
                         <button type="button" class="ed-btn" onclick="insertTag('* ', '')">• Liste</button>
                         <button type="button" class="ed-btn" onclick="insertTag('1. ', '')">1. Liste</button>
                         <button type="button" class="ed-btn" onclick="insertTag('> ', '')">💬</button>
                         <button type="button" class="ed-btn" onclick="insertTag('\n---\n', '')">---</button>
                     </div>
-
                     <div class="editor-row">
                         <span class="editor-label green">HTML:</span>
-                        
                         <button type="button" class="ed-btn" onclick="insertTag('<div style=\'text-align:center\'>', '</div>')">⬆ Center</button>
                         <button type="button" class="ed-btn" onclick="insertTag('<div style=\'text-align:right\'>', '</div>')">➡ Right</button>
                         <button type="button" class="ed-btn" onclick="insertTag('<div style=\'text-align:left\'>', '</div>')">⬅ Left</button>
-
                         <div class="ed-sep"></div>
-
                         <button type="button" class="ed-btn" onclick="insertTag('<span style=\'color:red\'>', '</span>')">🎨 Farbe</button>
                         <button type="button" class="ed-btn" onclick="insertTag('<mark>', '</mark>')">✨ Markieren</button>
-
                         <div class="ed-sep"></div>
-
                         <button type="button" class="ed-btn" onclick="insertTag('<small>', '</small>')">Small</button>
                         <button type="button" class="ed-btn" onclick="insertTag('<big>', '</big>')">Large</button>
-
                         <div class="ed-sep"></div>
-
                         <button type="button" class="ed-btn" onclick="insertTag('<u>', '</u>')"><u>U</u></button>
                         <button type="button" class="ed-btn" onclick="insertTag('<sup>', '</sup>')">x²</button>
                         <button type="button" class="ed-btn" onclick="insertTag('<sub>', '</sub>')">H₂O</button>
-                        
                         <div class="ed-sep"></div>
-                        
                         <button type="button" class="ed-btn" onclick="insertTag('<details><summary>Spoiler</summary>', '</details>')">👁 Spoiler</button>
-                        
                         <button type="button" class="ed-btn" onclick="insertTag('<br>', '')" style="background:#e7f3ff; border-color:#1877f2; color:#1877f2; font-weight:bold;">&lt;br&gt;</button>
                     </div>
                 </div>
+
                 <div class="editor-split">
                     <div class="editor-area">
                         <textarea id="markdown-input" spellcheck="false"><?= htmlspecialchars($data['content']) ?></textarea>
@@ -200,8 +198,36 @@ $allFiles = is_dir($uploadDir) ? array_diff(scandir($uploadDir), ['.', '..']) : 
 
             <div class="sidebar-card">
                 <div>
-                    <label style="font-weight: bold; font-size: 12px;">Titel</label>
-                    <input type="text" id="post-title" class="input" value="<?= htmlspecialchars($data['title']) ?>">
+                    <label style="font-weight: bold; font-size: 12px;">Status</label>
+                    <select id="post-status" class="input">
+                        <option value="draft" <?= $data['status'] === 'draft' ? 'selected' : '' ?>>Entwurf</option>
+                        <option value="published" <?= $data['status'] === 'published' ? 'selected' : '' ?>>Veröffentlicht</option>
+                    </select>
+                </div>
+
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <input type="checkbox" id="post-sticky" <?= ($data['is_sticky'] ?? 0) ? 'checked' : '' ?>>
+                    <label for="post-sticky" style="font-weight: bold; font-size: 12px; cursor: pointer;">📌 Beitrag anheften</label>
+                </div>
+
+                <div style="border-top: 1px solid #eee; padding-top: 15px; margin-top: 10px;">
+                    <label style="font-weight: bold; font-size: 12px;">Einleitung (Auszug)</label>
+                    <small style="display:block; color:#666; margin-bottom:5px;">Dieser Text erscheint auf der Startseite.</small>
+                    <textarea id="post-excerpt" class="input" rows="4" style="resize:vertical; min-height:80px; font-family:inherit; width: 100%; box-sizing: border-box; padding: 8px; border: 1px solid #cbd5e0; border-radius: 6px;"><?= htmlspecialchars($data['excerpt'] ?? '') ?></textarea>
+                </div>
+
+                <hr style="margin: 15px 0; border: 0; border-top: 1px solid #eee;">
+
+                <div>
+                    <label style="font-weight: bold; font-size: 12px;">Kategorie</label>
+                    <select id="post-category" class="input">
+                        <option value="">Keine Kategorie</option>
+                        <?php foreach($categories as $cat): ?>
+                            <option value="<?= $cat['id'] ?>" <?= $cat['id'] == $data['category_id'] ? 'selected' : '' ?>>
+                                <?= htmlspecialchars($cat['name']) ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
                 </div>
 
                 <div>
@@ -225,31 +251,6 @@ $allFiles = is_dir($uploadDir) ? array_diff(scandir($uploadDir), ['.', '..']) : 
                         <input type="text" id="download-file" class="input" value="<?= htmlspecialchars($data['download_file'] ?? '') ?>" placeholder="datei.zip">
                         <button class="btn" onclick="openMediaModal('download')"> Wahl </button>
                     </div>
-                </div>
-
-                <div>
-                    <label style="font-weight: bold; font-size: 12px;">Kategorie</label>
-                    <select id="post-category" class="input">
-                        <option value="">Keine Kategorie</option>
-                        <?php foreach($categories as $cat): ?>
-                            <option value="<?= $cat['id'] ?>" <?= $cat['id'] == $data['category_id'] ? 'selected' : '' ?>>
-                                <?= htmlspecialchars($cat['name']) ?>
-                            </option>
-                        <?php endforeach; ?>
-                    </select>
-                </div>
-
-                <div>
-                    <label style="font-weight: bold; font-size: 12px;">Status</label>
-                    <select id="post-status" class="input">
-                        <option value="draft" <?= $data['status'] === 'draft' ? 'selected' : '' ?>>Entwurf</option>
-                        <option value="published" <?= $data['status'] === 'published' ? 'selected' : '' ?>>Veröffentlicht</option>
-                    </select>
-                </div>
-
-                <div style="display: flex; align-items: center; gap: 10px;">
-                    <input type="checkbox" id="post-sticky" <?= ($data['is_sticky'] ?? 0) ? 'checked' : '' ?>>
-                    <label for="post-sticky" style="font-weight: bold; font-size: 12px; cursor: pointer;">📌 Beitrag anheften</label>
                 </div>
             </div>
         </div>
@@ -282,26 +283,25 @@ $allFiles = is_dir($uploadDir) ? array_diff(scandir($uploadDir), ['.', '..']) : 
         let currentTarget = 'hero'; 
 
         function updatePreview() { 
-            // 1. Markdown rendern
+            // Markdown zu HTML
             preview.innerHTML = marked.parse(input.value);
-            
-            // 2. Syntax Highlighting anwenden (falls geladen)
+            // Highlight.js anwenden, wenn geladen
             if(window.hljs) {
                 hljs.highlightAll();
             }
         }
         
         input.addEventListener('input', updatePreview);
-        // Initialer Aufruf (kurz verzögert, damit Libs sicher da sind)
+        // Initialer Aufruf
         setTimeout(updatePreview, 100);
 
-        // FIX: Scroll-Problem behoben (Position merken & wiederherstellen)
+        // Verbesserte Insert-Funktion mit Scroll-Fix
         function insertTag(open, close = '') {
             if (!input) return;
 
             const start = input.selectionStart;
             const end = input.selectionEnd;
-            const scrollTop = input.scrollTop; // <--- Scrollposition merken
+            const scrollTop = input.scrollTop; // Position merken
 
             const selectedText = input.value.substring(start, end);
             const replacement = open + selectedText + close;
@@ -313,10 +313,13 @@ $allFiles = is_dir($uploadDir) ? array_diff(scandir($uploadDir), ['.', '..']) : 
             input.focus();
             input.setSelectionRange(newPos, newPos);
             
-            input.scrollTop = scrollTop; // <--- Scrollposition wiederherstellen
-            
+            input.scrollTop = scrollTop; // Position wiederherstellen
             updatePreview();
         }
+
+        // Alte Wrapper für Kompatibilität
+        function wrap(before, after) { insertTag(before, after); }
+        function insert(str) { insertTag(str, ''); }
 
         function openMediaModal(target) {
             currentTarget = target;
@@ -344,7 +347,8 @@ $allFiles = is_dir($uploadDir) ? array_diff(scandir($uploadDir), ['.', '..']) : 
 
             const payload = {
                 id: <?= $id ?>,
-                title: document.getElementById('post-title').value,
+                title: document.getElementById('post-title').value, // Neuer Titel Ort
+                excerpt: document.getElementById('post-excerpt').value, // Neuer Auszug Ort
                 content: input.value,
                 hero_image: document.getElementById('hero-image').value,
                 download_file: document.getElementById('download-file').value,
