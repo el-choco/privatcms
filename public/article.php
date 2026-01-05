@@ -126,7 +126,8 @@ try {
 
   <nav class="top-nav">
     <div class="nav-container">
-      <a href="/" class="brand">PiperBlog</a>
+      <a href="/" class="brand"><?= htmlspecialchars($settings['blog_title'] ?? 'PiperBlog') ?></a>
+      
       <div style="display:flex; gap:10px; align-items:center;">
         <?php if (($settings['dark_mode_enabled'] ?? '0') === '1'): ?>
             <button id="theme-toggle" class="theme-toggle">🌓</button>
