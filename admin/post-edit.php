@@ -26,17 +26,35 @@ $allFiles = is_dir($uploadDir) ? array_diff(scandir($uploadDir), ['.', '..']) : 
     <meta charset="utf-8">
     <title>Editor - <?= htmlspecialchars($data['title']) ?></title>
     <link href="/admin/assets/styles/admin.css" rel="stylesheet">
+    
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/monokai-sublime.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/dockerfile.min.js"></script>
+
     <style>
         .editor-layout { display: grid; grid-template-columns: 1fr 320px; gap: 20px; height: calc(100vh - 120px); }
         .editor-main-card { display: flex; flex-direction: column; background: #fff; border-radius: 8px; border: 1px solid #ddd; overflow: hidden; }
         .sidebar-card { background: #fff; border-radius: 8px; border: 1px solid #ddd; padding: 20px; display: flex; flex-direction: column; gap: 15px; overflow-y: auto; }
         
-        /* Layout für Split-View */
         .editor-split { display: flex; flex: 1; overflow: hidden; }
         .editor-area, .preview-area { flex: 1; padding: 15px; overflow-y: auto; }
         .editor-area { border-right: 1px solid #ddd; }
         textarea { width: 100%; height: 100%; border: none; outline: none; font-family: monospace; resize: none; font-size: 14px; }
+        
+        /* VORSCHAU STYLING (Monokai Dark Background) */
+        .preview-area pre {
+            background: #23241f;
+            color: #f8f8f2;
+            padding: 1em;
+            border-radius: 6px;
+            overflow-x: auto;
+        }
+        .preview-area code {
+            font-family: 'Fira Code', Consolas, monospace;
+            font-size: 14px;
+        }
         
         #mediaModal { display: none; position: fixed; z-index: 10000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); align-items: center; justify-content: center; }
         .modal-content { background: white; padding: 20px; border-radius: 12px; width: 80%; max-width: 900px; max-height: 80vh; overflow-y: auto; }
@@ -46,7 +64,7 @@ $allFiles = is_dir($uploadDir) ? array_diff(scandir($uploadDir), ['.', '..']) : 
         .media-item img { width: 100%; height: 100px; object-fit: cover; display: block; border-radius: 4px; }
         .media-item .file-icon { font-size: 3rem; line-height: 100px; height: 100px; }
 
-        /* --- EDITOR TOOLBAR STYLES --- */
+        /* --- NEUE TOOLBAR STYLES --- */
         .editor-toolbar {
             background: #f8fafc;
             border-bottom: 1px solid #cbd5e0;
@@ -90,7 +108,7 @@ $allFiles = is_dir($uploadDir) ? array_diff(scandir($uploadDir), ['.', '..']) : 
         .ed-btn:hover { background: #f0f2f5; border-color: #bbb; color: #000; }
         .ed-sep { width: 1px; height: 20px; background: #eee; margin: 0 5px; }
         
-        /* Icons */
+        /* Icons via CSS (Simuliert) */
         .ico-img::before { content: "🖼️"; font-size:12px; }
         .ico-link::before { content: "🔗"; font-size:12px; }
     </style>
@@ -127,7 +145,7 @@ $allFiles = is_dir($uploadDir) ? array_diff(scandir($uploadDir), ['.', '..']) : 
                         <div class="ed-sep"></div>
 
                         <button type="button" class="ed-btn ico-link" onclick="insertTag('[Link Text](', ')')" title="Link"></button>
-                        <button type="button" class="ed-btn ico-img" onclick="openMediaModal('content')" title="Bild aus Mediathek einfügen"></button>
+                        <button type="button" class="ed-btn ico-img" onclick="openMediaModal('content')" title="Bild"></button>
 
                         <div class="ed-sep"></div>
 
@@ -263,11 +281,21 @@ $allFiles = is_dir($uploadDir) ? array_diff(scandir($uploadDir), ['.', '..']) : 
         const preview = document.getElementById('preview-box');
         let currentTarget = 'hero'; 
 
-        function updatePreview() { preview.innerHTML = marked.parse(input.value); }
+        function updatePreview() { 
+            // 1. Markdown rendern
+            preview.innerHTML = marked.parse(input.value);
+            
+            // 2. Syntax Highlighting anwenden (falls geladen)
+            if(window.hljs) {
+                hljs.highlightAll();
+            }
+        }
+        
         input.addEventListener('input', updatePreview);
-        updatePreview();
+        // Initialer Aufruf (kurz verzögert, damit Libs sicher da sind)
+        setTimeout(updatePreview, 100);
 
-        // FIX: Scroll-Problem behoben durch Speichern der Scroll-Position
+        // FIX: Scroll-Problem behoben (Position merken & wiederherstellen)
         function insertTag(open, close = '') {
             if (!input) return;
 
@@ -303,7 +331,7 @@ $allFiles = is_dir($uploadDir) ? array_diff(scandir($uploadDir), ['.', '..']) : 
             } else if (currentTarget === 'download') {
                 document.getElementById('download-file').value = filename;
             } else {
-                // Fügt Bild Markdown ein und nutzt die sichere insertTag Funktion
+                // Bild in den Editor einfügen
                 insertTag(`\n![Bildbeschreibung](/uploads/${filename})\n`, '');
             }
             closeMediaModal();

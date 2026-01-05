@@ -43,6 +43,9 @@ $posts = $stmt->fetchAll();
   <title><?= htmlspecialchars($settings['blog_title'] ?? $ini['app']['title'] ?? 'PiperBlog') ?></title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <link href="/assets/styles/main.css" rel="stylesheet">
+  
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/monokai-sublime.min.css">
+
   <style>
     /* --- FARBPALETTE (Variablen für Dark/Light Mode) --- */
     :root {
@@ -225,7 +228,12 @@ $posts = $stmt->fetchAll();
     </section>
   </main>
 
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/dockerfile.min.js"></script>
   <script>
+    // Syntax Highlighting
+    hljs.highlightAll();
+
     // Dark Mode Logik
     const toggleBtn = document.getElementById('theme-toggle');
     if (toggleBtn) {

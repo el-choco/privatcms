@@ -78,7 +78,7 @@ include 'header.php';
     }
     @keyframes modalScale { from { transform: scale(0.8); opacity: 0; } to { transform: scale(1); opacity: 1; } }
     .link-input {
-        width: 100%; padding: 12px; margin: 20px 0;
+        width: 95%; padding: 12px; margin: 20px 0;
         border: 2px solid #e2e8f0; border-radius: 8px;
         background: #f8fafc; font-family: monospace; font-size: 13px; text-align: center;
     }
