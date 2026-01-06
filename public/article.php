@@ -10,6 +10,14 @@ use App\Database;
 use App\I18n;
 
 $ini = parse_ini_file(__DIR__ . '/../config/config.ini', true, INI_SCANNER_TYPED) ?: [];
+$currentLang = $_SESSION['lang'] ?? 'de';
+$langFile = __DIR__ . '/../config/lang/' . $currentLang . '.ini';
+$iniLang = file_exists($langFile) ? parse_ini_file($langFile, true) : [];
+
+$sb_cat_title = $iniLang['categories']['title'] ?? 'Categories';
+$sb_comm_title = $iniLang['comments']['title'] ?? 'Comments';
+$sb_no_comm = $iniLang['comments']['no_comments'] ?? '-';
+
 $i18n = I18n::fromConfig($ini, $_GET['lang'] ?? null);
 $db  = new Database($ini['database'] ?? []);
 $pdo = $db->pdo();
@@ -21,6 +29,9 @@ $stmt->execute([$id]);
 $post = $stmt->fetch();
 
 if (!$post) { http_response_code(404); echo "Not found"; exit; }
+
+$cats = $pdo->query("SELECT c.id, c.name, COUNT(p.id) as count FROM categories c LEFT JOIN posts p ON p.category_id = c.id AND p.status = 'published' GROUP BY c.id ORDER BY c.name ASC")->fetchAll();
+$latestComments = $pdo->query("SELECT c.content, c.author_name, c.created_at, p.id as post_id, p.title FROM comments c JOIN posts p ON c.post_id = p.id WHERE c.status = 'approved' ORDER BY c.created_at DESC LIMIT 5")->fetchAll();
 
 $parsedown = new Parsedown();
 $parsedown->setSafeMode(false); 
@@ -40,16 +51,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     $spam_ans = (int)($_POST['spam_ans'] ?? 0);
 
     if ($name === '' || $content === '') {
-        // FIX: Zugriff über 'common.'
-        $error = $i18n->t('common.error_fill_fields') ?? "Bitte Namen und Kommentar ausfüllen.";
+        $error = $i18n->t('common.error_fill_fields') ?? "Please fill in name and comment.";
     } elseif ($spam_ans !== ($_SESSION['spam_a'] + $_SESSION['spam_b'])) {
-        // FIX: Zugriff über 'common.'
-        $error = $i18n->t('common.error_spam_wrong') ?? "Spam-Schutz: Falsches Ergebnis.";
+        $error = $i18n->t('common.error_spam_wrong') ?? "Spam Check: Wrong answer.";
     } else {
         $stmt = $pdo->prepare('INSERT INTO comments (post_id, author_name, author_email, content, status, created_at) VALUES (?, ?, ?, ?, "pending", NOW())');
         $stmt->execute([$id, $name, $email, $content]);
-        // FIX: Zugriff über 'common.'
-        $msg = $i18n->t('common.success_comment_pending') ?? "Danke! Dein Kommentar wird nach Prüfung freigeschaltet.";
+        $msg = $i18n->t('common.success_comment_pending') ?? "Thanks! Your comment is awaiting moderation.";
         $_SESSION['spam_a'] = rand(1, 10);
         $_SESSION['spam_b'] = rand(1, 10);
     }
@@ -61,9 +69,7 @@ $comments = $stmt->fetchAll();
 
 $settings = [];
 try {
-    foreach ($pdo->query("SELECT * FROM settings")->fetchAll() as $row) { 
-        $settings[$row['setting_key']] = $row['setting_value']; 
-    }
+    foreach ($pdo->query("SELECT * FROM settings")->fetchAll() as $row) { $settings[$row['setting_key']] = $row['setting_value']; }
 } catch (Exception $e) {}
 ?>
 <!DOCTYPE html>
@@ -77,76 +83,62 @@ try {
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 
   <style>
-    body { margin: 0; padding: 0; background-color: #f0f2f5; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; transition: background 0.3s; }
-    [data-theme="dark"] body { background-color: #18191a; color: #e4e6eb; }
+    :root { --bg-body: #f0f2f5; --bg-card: #ffffff; --text-main: #1c1e21; --text-muted: #65676b; --border: #ccd0d5; --primary: #1877f2; }
+    [data-theme="dark"] { --bg-body: #18191a; --bg-card: #242526; --text-main: #e4e6eb; --text-muted: #b0b3b8; --border: #3e4042; --primary: #2d88ff; }
     
-    .top-nav { background-color: #1877f2; color: white; padding: 12px 0; box-shadow: 0 2px 4px rgba(0,0,0,0.1); width: 100%; margin-bottom: 30px; }
-    .nav-container { max-width: 1200px; margin: 0 auto; width: 95%; display: flex; justify-content: space-between; align-items: center; }
+    body { background-color: var(--bg-body); color: var(--text-main); margin: 0; font-family: -apple-system, sans-serif; transition: background 0.3s, color 0.3s; scroll-behavior: smooth; }
+    
+    .top-nav { background-color: var(--primary); color: white; padding: 12px 0; box-shadow: 0 2px 4px rgba(0,0,0,0.1); width: 100%; margin-bottom: 30px; }
+    .nav-container { max-width: 1800px; margin: 0 auto; width: 95%; display: flex; justify-content: space-between; align-items: center; }
     .brand { font-size: 24px; font-weight: bold; text-decoration: none; color: white; }
     .btn-home { background-color: rgba(255,255,255,0.2); color: white; text-decoration: none; padding: 8px 16px; border-radius: 6px; font-weight: 600; transition: background 0.2s; }
     .btn-home:hover { background-color: rgba(255,255,255,0.3); }
-    
     .theme-toggle { background: none; border: 1px solid rgba(255,255,255,0.3); color: white; padding: 6px 12px; border-radius: 20px; cursor: pointer; font-size: 1.2rem; }
 
-    .container { max-width: 1200px; margin: 0 auto; width: 95%; padding-bottom: 50px; }
-    .article { background: #fff; padding: 40px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
-    [data-theme="dark"] .article { background: #242526; color: #e4e6eb; }
+    .container { max-width: 1800px; margin: 0 auto; width: 95%; padding-bottom: 50px; }
+    .layout-wrapper { display: flex; gap: 30px; align-items: flex-start; }
+    .main-content { flex: 1; min-width: 0; }
     
-    .article-meta { color: #65676b; font-size: 0.9rem; margin-bottom: 15px; display: flex; gap: 15px; }
-    [data-theme="dark"] .article-meta { color: #b0b3b8; }
-    
+    .article { background: var(--bg-card); padding: 40px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
+    .article-meta { color: var(--text-muted); font-size: 0.9rem; margin-bottom: 15px; display: flex; gap: 15px; }
     .cat-badge { background: #e7f3ff; color: #1877f2; padding: 2px 8px; border-radius: 4px; font-weight: bold; font-size: 0.8rem; }
-    
-    .article-teaser { font-size: 1.25rem; line-height: 1.6; color: #1c1e21; font-weight: 500; margin: 20px 0 30px 0; padding: 20px; background: #f0f2f5; border-radius: 8px; border-left: 6px solid #1877f2; }
-    [data-theme="dark"] .article-teaser { background: #3a3b3c; color: #e4e6eb; }
-    
-    .article-body { font-size: 1.1rem; line-height: 1.7; color: #1c1e21; }
-    [data-theme="dark"] .article-body { color: #e4e6eb; }
-    
-    .article-body h1, .article-body h2, .article-body h3 { color: inherit; }
+    .article-teaser { font-size: 1.25rem; line-height: 1.6; color: var(--text-main); margin: 20px 0 30px 0; padding: 20px; background: var(--bg-body); border-radius: 8px; border-left: 6px solid var(--primary); }
+    .article-body { font-size: 1.1rem; line-height: 1.7; color: var(--text-main); }
     .article-body img { max-width: 100%; border-radius: 8px; }
+    .article-body pre { background: #23241f !important; color: #f8f8f2 !important; padding: 15px; border-radius: 8px; overflow-x: auto; font-family: 'Fira Code', Consolas, monospace; margin: 20px 0; }
     
-    .article-body pre {
-        background: #23241f !important;
-        color: #f8f8f2 !important;
-        padding: 15px;
-        border-radius: 8px;
-        overflow-x: auto;
-        font-family: 'Fira Code', Consolas, monospace;
-        margin: 20px 0;
-        border: 1px solid #333;
-    }
+    .sidebar { width: 320px; flex-shrink: 0; position: sticky; top: 20px; display: flex; flex-direction: column; gap: 20px; }
+    .sidebar-widget { background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
+    .sidebar-title { margin: 0 0 15px 0; font-size: 1.1rem; color: var(--primary); border-bottom: 2px solid #e7f3ff; padding-bottom: 8px; display: flex; align-items: center; gap: 8px; }
     
-    .article-body pre code {
-        background: transparent !important;
-        padding: 0 !important;
-        border: none !important;
-        color: inherit !important;
-        font-family: inherit;
-        font-size: 0.95rem;
-    }
+    .cat-list { list-style: none; padding: 0; margin: 0; }
+    .cat-item { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--border); }
+    .cat-item:last-child { border-bottom: none; }
+    .cat-item a { text-decoration: none; color: var(--text-main); font-weight: 500; }
+    .cat-item a:hover { color: var(--primary); }
+    .cat-count { background: #e7f3ff; color: var(--primary); font-size: 0.8rem; font-weight: bold; padding: 2px 8px; border-radius: 10px; }
 
-    .article-body p code, .article-body li code {
-        background: rgba(0,0,0,0.1);
-        padding: 2px 5px;
-        border-radius: 4px;
-        color: #d14; 
-        font-size: 0.9em;
-        font-family: 'Fira Code', Consolas, monospace;
-    }
-    [data-theme="dark"] .article-body p code { background: rgba(255,255,255,0.1); color: #ff6b6b; }
+    .comm-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 15px; }
+    .comm-item { display: flex; flex-direction: column; gap: 4px; font-size: 0.9rem; }
+    .comm-meta { font-size: 0.8rem; color: var(--text-muted); display: flex; align-items: center; gap: 5px; }
+    .comm-author { font-weight: bold; color: var(--text-main); }
+    .comm-link { text-decoration: none; color: var(--primary); font-weight: 500; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .comm-text { font-style: italic; color: var(--text-muted); font-size: 0.85rem; border-left: 2px solid var(--border); padding-left: 8px; margin-top: 2px; }
 
-    .comments-section { margin-top: 50px; border-top: 1px solid #ced0d4; padding-top: 30px; }
-    .comment-item { background: #f0f2f5; padding: 15px; border-radius: 18px; margin-bottom: 10px; display: inline-block; min-width: 300px; }
-    [data-theme="dark"] .comment-item { background: #3a3b3c; color: #e4e6eb; }
-    
-    .comment-author { font-weight: bold; color: #050505; font-size: 0.9rem; }
-    [data-theme="dark"] .comment-author { color: #e4e6eb; }
-    
-    .comment-form { background: #fff; padding: 20px; border-radius: 12px; border: 1px solid #ced0d4; margin-top: 30px; }
-    [data-theme="dark"] .comment-form { background: #242526; border-color: #3e4042; }
-    
-    .btn-submit { background: #1877f2; color: white; padding: 10px 20px; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; width: 100%; }
+    .comments-section { margin-top: 50px; border-top: 1px solid var(--border); padding-top: 30px; }
+    .comment-item { background: var(--bg-body); padding: 15px; border-radius: 18px; margin-bottom: 10px; }
+    .comment-author { font-weight: bold; color: var(--text-main); font-size: 0.9rem; }
+    .comment-form { background: var(--bg-card); padding: 20px; border-radius: 12px; border: 1px solid var(--border); margin-top: 30px; }
+    .btn-submit { background: var(--primary); color: white; padding: 10px 20px; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; width: 100%; }
+
+    #backToTop { position: fixed; bottom: 30px; right: 30px; z-index: 999; background: var(--primary); color: white; border: none; width: 50px; height: 50px; border-radius: 50%; font-size: 24px; cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.2); opacity: 0; pointer-events: none; transition: opacity 0.3s, transform 0.3s; display: flex; align-items: center; justify-content: center; }
+    #backToTop.show { opacity: 1; pointer-events: all; }
+    #backToTop:hover { transform: translateY(-3px); }
+
+    @media (max-width: 1000px) {
+        .sidebar { display: none !important; }
+        .layout-wrapper { display: block; }
+    }
   </style>
 </head>
 <body>
@@ -158,77 +150,123 @@ try {
         <?php if (($settings['dark_mode_enabled'] ?? '0') === '1'): ?>
             <button id="theme-toggle" class="theme-toggle">🌓</button>
         <?php endif; ?>
-        <a href="/" class="btn-home"><?= htmlspecialchars($i18n->t('common.nav_home') ?? 'Startseite') ?></a>
+        <a href="/" class="btn-home"><?= htmlspecialchars($i18n->t('common.nav_home') ?? 'Home') ?></a>
       </div>
     </div>
   </nav>
 
   <main class="container">
-    <article class="article">
-      <header>
-        <div class="article-meta">
-            <span>📅 <?= date('d.m.Y', strtotime($post['created_at'])) ?></span>
-            <?php if ($post['category_name']): ?>
-                <span class="cat-badge"><?= htmlspecialchars($post['category_name']) ?></span>
-            <?php endif; ?>
-        </div>
-        <h1 style="font-size: 2.5rem; margin: 0 0 20px 0; color: inherit;"><?= htmlspecialchars($post['title']) ?></h1>
-      </header>
-      
-      <?php if (!empty($post['hero_image'])): ?>
-        <img src="/uploads/<?= htmlspecialchars($post['hero_image']) ?>" style="width:100%; height:auto; border-radius:8px; margin-bottom:20px;">
-      <?php endif; ?>
-
-      <?php if (!empty($post['excerpt'])): ?>
-        <div class="article-teaser">
-            <?= nl2br(htmlspecialchars($post['excerpt'])) ?>
-        </div>
-      <?php endif; ?>
-
-      <div class="article-body">
-          <?= $parsedown->text($post['content']) ?>
-      </div>
-      
-      <?php if (!empty($post['download_file'])): ?>
-        <div style="margin-top:30px; border-top:1px solid #eee; padding-top:20px;">
-            <a href="/uploads/<?= htmlspecialchars($post['download_file']) ?>" class="btn-submit" style="text-decoration:none; display:inline-block; width:auto;" download>📥 <?= htmlspecialchars($i18n->t('common.download_btn') ?? 'Datei Downloaden') ?></a>
-        </div>
-      <?php endif; ?>
-
-      <section class="comments-section">
-        <h3><?= htmlspecialchars($i18n->t('common.comments_headline') ?? 'Kommentare') ?> (<?= count($comments) ?>)</h3>
+    <div class="layout-wrapper">
         
-        <?php if($msg): ?><div style="background:#d1e7dd; color:#0f5132; padding:15px; border-radius:6px; margin-bottom:20px;"><?= htmlspecialchars($msg) ?></div><?php endif; ?>
-        <?php if($error): ?><div style="background:#f8d7da; color:#842029; padding:15px; border-radius:6px; margin-bottom:20px;"><?= htmlspecialchars($error) ?></div><?php endif; ?>
-
-        <?php foreach ($comments as $c): ?>
-            <div style="margin-bottom: 15px;">
-                <div class="comment-item">
-                    <div class="comment-author"><?= htmlspecialchars($c['author_name']) ?></div>
-                    <div style="color: inherit;"><?= nl2br(htmlspecialchars($c['content'])) ?></div>
+        <section class="main-content">
+            <article class="article">
+              <header>
+                <div class="article-meta">
+                    <span>📅 <?= date('d.m.Y', strtotime($post['created_at'])) ?></span>
+                    <?php if ($post['category_name']): ?>
+                        <span class="cat-badge"><?= htmlspecialchars($post['category_name']) ?></span>
+                    <?php endif; ?>
                 </div>
-                <div style="font-size: 0.75rem; color: #65676b; margin-left: 12px;"> <?= htmlspecialchars($i18n->t('common.comment_date_at') ?? 'am') ?> <?= date('d.m.Y', strtotime($c['created_at'])) ?></div>
+                <h1 style="font-size: 2.5rem; margin: 0 0 20px 0; color: inherit;"><?= htmlspecialchars($post['title']) ?></h1>
+              </header>
+              
+              <?php if (!empty($post['hero_image'])): ?>
+                <img src="/uploads/<?= htmlspecialchars($post['hero_image']) ?>" style="width:100%; height:auto; border-radius:8px; margin-bottom:20px;">
+              <?php endif; ?>
+
+              <?php if (!empty($post['excerpt'])): ?>
+                <div class="article-teaser">
+                    <?= nl2br(htmlspecialchars($post['excerpt'])) ?>
+                </div>
+              <?php endif; ?>
+
+              <div class="article-body">
+                  <?= $parsedown->text($post['content']) ?>
+              </div>
+              
+              <?php if (!empty($post['download_file'])): ?>
+                <div style="margin-top:30px; border-top:1px solid #eee; padding-top:20px;">
+                    <a href="/uploads/<?= htmlspecialchars($post['download_file']) ?>" class="btn-submit" style="text-decoration:none; display:inline-block; width:auto;" download>📥 <?= htmlspecialchars($i18n->t('common.download_btn') ?? 'Download File') ?></a>
+                </div>
+              <?php endif; ?>
+
+              <section class="comments-section">
+                <h3><?= htmlspecialchars($i18n->t('common.comments_headline') ?? 'Comments') ?> (<?= count($comments) ?>)</h3>
+                
+                <?php if($msg): ?><div style="background:#d1e7dd; color:#0f5132; padding:15px; border-radius:6px; margin-bottom:20px;"><?= htmlspecialchars($msg) ?></div><?php endif; ?>
+                <?php if($error): ?><div style="background:#f8d7da; color:#842029; padding:15px; border-radius:6px; margin-bottom:20px;"><?= htmlspecialchars($error) ?></div><?php endif; ?>
+
+                <?php foreach ($comments as $c): ?>
+                    <div style="margin-bottom: 15px;">
+                        <div class="comment-item">
+                            <div class="comment-author"><?= htmlspecialchars($c['author_name']) ?></div>
+                            <div style="color: inherit;"><?= nl2br(htmlspecialchars($c['content'])) ?></div>
+                        </div>
+                        <div style="font-size: 0.75rem; color: var(--text-muted); margin-left: 12px;"> <?= htmlspecialchars($i18n->t('common.comment_date_at') ?? 'at') ?> <?= date('d.m.Y', strtotime($c['created_at'])) ?></div>
+                    </div>
+                <?php endforeach; ?>
+
+                <div class="comment-form">
+                    <h4 style="margin-top:0;"><?= htmlspecialchars($i18n->t('common.write_comment_headline') ?? 'Leave a comment') ?></h4>
+                    <form method="POST">
+                        <input type="hidden" name="action" value="comment">
+                        <input type="text" name="name" placeholder="<?= htmlspecialchars($i18n->t('common.placeholder_name') ?? 'Your Name') ?>" required style="width: 100%; padding: 10px; margin-bottom: 10px; border: 1px solid var(--border); border-radius: 6px; box-sizing: border-box;">
+                        <textarea name="content" rows="3" placeholder="<?= htmlspecialchars($i18n->t('common.placeholder_comment') ?? 'Your comment...') ?>" required style="width: 100%; padding: 10px; margin-bottom: 10px; border: 1px solid var(--border); border-radius: 6px; box-sizing: border-box; resize: none;"></textarea>
+                        
+                        <div style="background: var(--bg-body); padding: 10px; border-radius: 6px; margin-bottom: 10px; font-size: 0.9rem; color:var(--text-main);">
+                            <?= sprintf($i18n->t('common.spam_protection') ?? 'Spam Check: What is %d + %d?', $_SESSION['spam_a'], $_SESSION['spam_b']) ?>
+                            <input type="number" name="spam_ans" required style="width: 60px; padding: 5px; margin-left: 10px; border: 1px solid var(--border); border-radius: 4px;">
+                        </div>
+                        
+                        <button type="submit" class="btn-submit"><?= htmlspecialchars($i18n->t('common.btn_submit_comment') ?? 'Post Comment') ?></button>
+                    </form>
+                </div>
+              </section>
+            </article>
+        </section>
+
+        <aside class="sidebar">
+            <div class="sidebar-widget">
+                <h3 class="sidebar-title"><?= htmlspecialchars($sb_cat_title) ?></h3>
+                <ul class="cat-list">
+                    <?php foreach($cats as $cat): ?>
+                    <li class="cat-item">
+                        <a href="/index.php?category=<?= $cat['id'] ?>"><?= htmlspecialchars($cat['name']) ?></a>
+                        <span class="cat-count"><?= $cat['count'] ?></span>
+                    </li>
+                    <?php endforeach; ?>
+                </ul>
             </div>
-        <?php endforeach; ?>
 
-        <div class="comment-form">
-            <h4 style="margin-top:0;"><?= htmlspecialchars($i18n->t('common.write_comment_headline') ?? 'Einen Kommentar schreiben') ?></h4>
-            <form method="POST">
-                <input type="hidden" name="action" value="comment">
-                <input type="text" name="name" placeholder="<?= htmlspecialchars($i18n->t('common.placeholder_name') ?? 'Dein Name') ?>" required style="width: 100%; padding: 10px; margin-bottom: 10px; border: 1px solid #ced0d4; border-radius: 6px; box-sizing: border-box;">
-                <textarea name="content" rows="3" placeholder="<?= htmlspecialchars($i18n->t('common.placeholder_comment') ?? 'Dein Kommentar...') ?>" required style="width: 100%; padding: 10px; margin-bottom: 10px; border: 1px solid #ced0d4; border-radius: 6px; box-sizing: border-box; resize: none;"></textarea>
-                
-                <div style="background: #f0f2f5; padding: 10px; border-radius: 6px; margin-bottom: 10px; font-size: 0.9rem; color:#333;">
-                    <?= sprintf($i18n->t('common.spam_protection') ?? 'Spam-Schutz: Was ist %d + %d?', $_SESSION['spam_a'], $_SESSION['spam_b']) ?>
-                    <input type="number" name="spam_ans" required style="width: 60px; padding: 5px; margin-left: 10px; border: 1px solid #ced0d4; border-radius: 4px;">
-                </div>
-                
-                <button type="submit" class="btn-submit"><?= htmlspecialchars($i18n->t('common.btn_submit_comment') ?? 'Kommentieren') ?></button>
-            </form>
-        </div>
-      </section>
-    </article>
+            <div class="sidebar-widget">
+                <h3 class="sidebar-title"><?= htmlspecialchars($sb_comm_title) ?></h3>
+                <?php if(empty($latestComments)): ?>
+                    <div style="color:var(--text-muted);font-size:0.9rem;"><?= htmlspecialchars($sb_no_comm) ?></div>
+                <?php else: ?>
+                    <ul class="comm-list">
+                        <?php foreach($latestComments as $lc): ?>
+                        <li class="comm-item">
+                            <div class="comm-meta">
+                                <span class="comm-author"><?= htmlspecialchars($lc['author_name']) ?></span>
+                                <span>• <?= date($t['date_format'], strtotime($lc['created_at'])) ?></span>
+                            </div>
+                            <a href="/article.php?id=<?= $lc['post_id'] ?>#comments" class="comm-link">
+                                “<?= htmlspecialchars($lc['title']) ?>”
+                            </a>
+                            <div class="comm-text">
+                                <?= htmlspecialchars(mb_substr($lc['content'], 0, 80)) . '...' ?>
+                            </div>
+                        </li>
+                        <?php endforeach; ?>
+                    </ul>
+                <?php endif; ?>
+            </div>
+        </aside>
+
+    </div>
   </main>
+
+  <button id="backToTop" title="Nach oben">↑</button>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/dockerfile.min.js"></script>
@@ -247,6 +285,15 @@ try {
             localStorage.setItem('theme', next);
         });
     }
+
+    const backToTopBtn = document.getElementById('backToTop');
+    window.addEventListener('scroll', () => {
+        if (window.scrollY > 300) backToTopBtn.classList.add('show');
+        else backToTopBtn.classList.remove('show');
+    });
+    backToTopBtn.addEventListener('click', () => {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
   </script>
 </body>
 </html>
