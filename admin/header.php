@@ -19,6 +19,9 @@ if (!empty($_SESSION['date_fmt'])) {
 
 $ini = parse_ini_file(__DIR__ . '/../config/config.ini', true, INI_SCANNER_TYPED) ?: [];
 $current_page = basename($_SERVER['PHP_SELF']);
+
+$userRole = $_SESSION['admin']['role'] ?? 'viewer';
+$isAdmin = $userRole === 'admin';
 ?>
 <!DOCTYPE html>
 <html lang="<?= htmlspecialchars($currentLang) ?>">
@@ -65,30 +68,41 @@ $current_page = basename($_SERVER['PHP_SELF']);
             <a href="dashboard.php" class="<?= $current_page=='dashboard.php'?'active':'' ?>">
                 <?= htmlspecialchars($t['dashboard']['title'] ?? 'Dashboard') ?>
             </a>
-            <a href="posts.php" class="<?= ($current_page=='posts.php' || $current_page=='post-edit.php')?'active':'' ?>">
+            <a href="posts.php" class="<?= ($current_page=='posts.php' || $current_page=='post-create.php' || $current_page=='post-edit.php')?'active':'' ?>">
                 <?= htmlspecialchars($t['posts']['title'] ?? 'Beiträge') ?>
             </a>
             <a href="files.php" class="<?= $current_page=='files.php'?'active':'' ?>">
                 <?= htmlspecialchars($t['files']['title'] ?? 'Dateien') ?>
             </a>
+            
+            <?php if ($isAdmin): ?>
             <a href="categories.php" class="<?= $current_page=='categories.php'?'active':'' ?>">
                 <?= htmlspecialchars($t['categories']['title'] ?? 'Kategorien') ?>
             </a>
             <a href="comments.php" class="<?= $current_page=='comments.php'?'active':'' ?>">
                 <?= htmlspecialchars($t['comments']['title'] ?? 'Kommentare') ?>
             </a>
-            <a href="settings.php" class="<?= $current_page=='settings.php'?'active':'' ?>">
-                <?= htmlspecialchars($t['settings']['title'] ?? 'Einstellungen') ?>
+            <a href="users.php" class="<?= ($current_page=='users.php' || $current_page=='user-edit.php')?'active':'' ?>">
+                <?= htmlspecialchars($t['users']['title'] ?? 'Benutzer') ?>
+            </a>
+            <a href="activity-log.php" class="<?= $current_page=='activity-log.php'?'active':'' ?>">
+                <?= htmlspecialchars($t['activity_log']['title'] ?? 'Logbuch') ?>
             </a>
             
             <a href="change-language.php" class="<?= $current_page=='change-language.php'?'active':'' ?>">
                 <?= htmlspecialchars($t['language_settings']['title'] ?? 'Sprache & Region') ?>
             </a>
+
+            <a href="settings.php" class="<?= $current_page=='settings.php'?'active':'' ?>">
+                <?= htmlspecialchars($t['settings']['title'] ?? 'Einstellungen') ?>
+            </a>
+            <?php endif; ?>
         </nav>
 
         <div class="sidebar-footer">
             <a href="logout.php" style="color: #fc8181; text-decoration: none; font-size: 14px; display: flex; align-items: center; gap: 8px;">
                 <?= htmlspecialchars($t['common']['logout'] ?? 'Abmelden') ?>
+                <span style="font-size: 12px; opacity: 0.7;">(<?= htmlspecialchars($_SESSION['admin']['username'] ?? 'User') ?>)</span>
             </a>
         </div>
     </aside>

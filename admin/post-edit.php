@@ -12,12 +12,22 @@ $langFile = __DIR__ . '/../config/lang/' . $currentLang . '.ini';
 $t_temp = file_exists($langFile) ? parse_ini_file($langFile, true) : [];
 $peLang = $t_temp['post_edit'] ?? [];
 
+$currentUser = $_SESSION['admin'];
+$isAdmin = ($currentUser['role'] ?? 'viewer') === 'admin';
+$currentUserId = (int)$currentUser['id'];
+
 $id = (int)($_GET['id'] ?? 0);
 $stmt = $pdo->prepare("SELECT * FROM posts WHERE id = ?");
 $stmt->execute([$id]);
 $data = $stmt->fetch();
 
 if (!$data) { die("Beitrag nicht gefunden."); }
+
+$isOwner = (int)($data['author_id'] ?? 0) === $currentUserId;
+if (!$isAdmin && !$isOwner) {
+    header('Location: posts.php');
+    exit;
+}
 
 $categories = $pdo->query("SELECT * FROM categories ORDER BY name ASC")->fetchAll();
 

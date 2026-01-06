@@ -20,7 +20,8 @@ $t = [
     'date_format'    => $iniLang['common']['date_fmt'] ?? 'd.m.Y',
     'sb_cat_title'   => $iniLang['categories']['title'] ?? 'Categories',
     'sb_comm_title'  => $iniLang['comments']['title'] ?? 'Comments',
-    'sb_no_comm'     => $iniLang['comments']['no_comments'] ?? '-'
+    'sb_no_comm'     => $iniLang['comments']['no_comments'] ?? '-',
+    'by'             => $iniLang['frontend']['by'] ?? 'by'
 ];
 
 require_once __DIR__ . '/../src/App/Database.php';
@@ -39,9 +40,10 @@ try {
 } catch (Exception $e) { }
 
 $stmt = $pdo->query('
-  SELECT p.id, p.title, p.excerpt, p.hero_image, p.created_at, p.is_sticky, c.name AS category
+  SELECT p.id, p.title, p.excerpt, p.hero_image, p.created_at, p.is_sticky, c.name AS category, u.username AS author_name
   FROM posts p
   LEFT JOIN categories c ON c.id = p.category_id
+  LEFT JOIN users u ON p.author_id = u.id
   WHERE p.status = "published"
   ORDER BY p.is_sticky DESC, p.created_at DESC
   LIMIT ' . (int)($settings['posts_per_page'] ?? 12)
@@ -109,10 +111,11 @@ $languages = [
     .post-card__content { padding: 20px; flex-grow: 1; display: flex; flex-direction: column; }
     .post-card__title { margin: 0 0 10px 0; font-size: 1.3rem; line-height: 1.3; }
     .post-card__title a { text-decoration: none; color: var(--text-main); }
-    .post-card__meta { margin-bottom: 12px; display: flex; align-items: center; gap: 10px; font-size: 0.85rem; }
+    .post-card__meta { margin-bottom: 12px; display: flex; align-items: center; gap: 10px; font-size: 0.85rem; flex-wrap: wrap; }
     .badge { background: #e7f3ff; color: #1877f2; padding: 3px 10px; border-radius: 5px; font-weight: bold; }
     .badge-sticky { background: #e53e3e; color: white; padding: 3px 10px; border-radius: 5px; font-weight: bold; }
     .date { color: var(--text-muted); }
+    .author { color: var(--text-muted); display: flex; align-items: center; gap: 4px; }
     .post-card__excerpt { color: var(--text-main); opacity: 0.8; line-height: 1.5; margin-bottom: 20px; font-size: 0.95rem; }
     .post-card__cta { margin-top: auto; background: var(--bg-body); color: var(--primary); text-align: center; padding: 10px; border-radius: 6px; text-decoration: none; font-weight: bold; transition: background 0.2s; }
     .post-card__cta:hover { background: var(--primary); color: white; }
@@ -192,6 +195,10 @@ $languages = [
                         <?php if (!empty($p['is_sticky'])): ?><span class="badge-sticky"><?= htmlspecialchars($t['sticky']) ?></span><?php endif; ?>
                         <?php if (!empty($p['category'])): ?><span class="badge"><?= htmlspecialchars($p['category']) ?></span><?php endif; ?>
                         <span class="date"><?= date($t['date_format'], strtotime($p['created_at'])) ?></span>
+                        <span class="author">
+                             • <?= htmlspecialchars($t['by']) ?> 
+                             <strong><?= htmlspecialchars($p['author_name'] ?? 'Admin') ?></strong>
+                        </span>
                         </div>
                         <h2 class="post-card__title"><a href="/article.php?id=<?= (int)$p['id'] ?>"><?= htmlspecialchars($p['title']) ?></a></h2>
                         <p class="post-card__excerpt"><?= htmlspecialchars($p['excerpt'] ?? '') ?></p>

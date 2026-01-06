@@ -2,6 +2,11 @@
 declare(strict_types=1);
 session_start();
 
+if (isset($_GET['lang']) && in_array($_GET['lang'], ['de', 'en', 'fr', 'es'])) {
+    $_SESSION['lang'] = $_GET['lang'];
+}
+$currentLang = $_SESSION['lang'] ?? 'de';
+
 require_once __DIR__ . '/../src/App/Database.php';
 require_once __DIR__ . '/../src/App/I18n.php';
 require_once __DIR__ . '/../src/App/Parsedown.php';
@@ -10,13 +15,14 @@ use App\Database;
 use App\I18n;
 
 $ini = parse_ini_file(__DIR__ . '/../config/config.ini', true, INI_SCANNER_TYPED) ?: [];
-$currentLang = $_SESSION['lang'] ?? 'de';
+
 $langFile = __DIR__ . '/../config/lang/' . $currentLang . '.ini';
 $iniLang = file_exists($langFile) ? parse_ini_file($langFile, true) : [];
 
 $sb_cat_title = $iniLang['categories']['title'] ?? 'Categories';
 $sb_comm_title = $iniLang['comments']['title'] ?? 'Comments';
 $sb_no_comm = $iniLang['comments']['no_comments'] ?? '-';
+$t_by = $iniLang['frontend']['by'] ?? 'by';
 
 $i18n = I18n::fromConfig($ini, $_GET['lang'] ?? null);
 $db  = new Database($ini['database'] ?? []);
@@ -24,7 +30,7 @@ $pdo = $db->pdo();
 
 $id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
 
-$stmt = $pdo->prepare('SELECT p.*, c.name as category_name FROM posts p LEFT JOIN categories c ON p.category_id = c.id WHERE p.id=? AND p.status="published"');
+$stmt = $pdo->prepare('SELECT p.*, c.name as category_name, u.username as author_name FROM posts p LEFT JOIN categories c ON p.category_id = c.id LEFT JOIN users u ON p.author_id = u.id WHERE p.id=? AND p.status="published"');
 $stmt->execute([$id]);
 $post = $stmt->fetch();
 
@@ -71,6 +77,13 @@ $settings = [];
 try {
     foreach ($pdo->query("SELECT * FROM settings")->fetchAll() as $row) { $settings[$row['setting_key']] = $row['setting_value']; }
 } catch (Exception $e) {}
+
+$languages = [
+    'de' => ['label' => 'Deutsch',  'flag' => 'https://flagcdn.com/w40/de.png'],
+    'en' => ['label' => 'English',  'flag' => 'https://flagcdn.com/w40/gb.png'],
+    'fr' => ['label' => 'Français', 'flag' => 'https://flagcdn.com/w40/fr.png'],
+    'es' => ['label' => 'Español',  'flag' => 'https://flagcdn.com/w40/es.png']
+];
 ?>
 <!DOCTYPE html>
 <html lang="<?= htmlspecialchars($i18n->locale()) ?>" data-theme="<?= ($settings['dark_mode_enabled'] ?? '0') === '1' ? 'light' : 'light' ?>">
@@ -95,12 +108,21 @@ try {
     .btn-home:hover { background-color: rgba(255,255,255,0.3); }
     .theme-toggle { background: none; border: 1px solid rgba(255,255,255,0.3); color: white; padding: 6px 12px; border-radius: 20px; cursor: pointer; font-size: 1.2rem; }
 
+    .lang-dropdown { position: relative; }
+    .lang-trigger { display: flex; align-items: center; gap: 6px; cursor: pointer; background: rgba(255,255,255,0.15); padding: 6px 10px; border-radius: 6px; color: white; font-weight: 600; font-size: 0.9rem; }
+    .lang-trigger img { width: 20px; border-radius: 3px; }
+    .lang-menu { display: none; position: absolute; right: 0; top: 120%; background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 5px 15px rgba(0,0,0,0.2); z-index: 1000; min-width: 150px; overflow: hidden; }
+    .lang-menu.show { display: block; }
+    .lang-option { display: flex; align-items: center; gap: 10px; padding: 10px 15px; color: var(--text-main); text-decoration: none; font-size: 0.95rem; }
+    .lang-option:hover { background: var(--bg-body); color: var(--primary); }
+    .lang-option img { width: 18px; border-radius: 2px; }
+
     .container { max-width: 1800px; margin: 0 auto; width: 95%; padding-bottom: 50px; }
     .layout-wrapper { display: flex; gap: 30px; align-items: flex-start; }
     .main-content { flex: 1; min-width: 0; }
     
     .article { background: var(--bg-card); padding: 40px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
-    .article-meta { color: var(--text-muted); font-size: 0.9rem; margin-bottom: 15px; display: flex; gap: 15px; }
+    .article-meta { color: var(--text-muted); font-size: 0.9rem; margin-bottom: 15px; display: flex; gap: 15px; align-items: center; }
     .cat-badge { background: #e7f3ff; color: #1877f2; padding: 2px 8px; border-radius: 4px; font-weight: bold; font-size: 0.8rem; }
     .article-teaser { font-size: 1.25rem; line-height: 1.6; color: var(--text-main); margin: 20px 0 30px 0; padding: 20px; background: var(--bg-body); border-radius: 8px; border-left: 6px solid var(--primary); }
     .article-body { font-size: 1.1rem; line-height: 1.7; color: var(--text-main); }
@@ -147,6 +169,23 @@ try {
     <div class="nav-container">
       <a href="/" class="brand"><?= htmlspecialchars($settings['blog_title'] ?? 'PiperBlog') ?></a>
       <div style="display:flex; gap:10px; align-items:center;">
+        
+        <div class="lang-dropdown" id="langDropdown">
+            <div class="lang-trigger" onclick="toggleLang()">
+                <img src="<?= $languages[$currentLang]['flag'] ?>" alt="<?= $currentLang ?>">
+                <span><?= strtoupper($currentLang) ?></span>
+                <span style="font-size: 10px;">▼</span>
+            </div>
+            <div class="lang-menu" id="langMenu">
+                <?php foreach($languages as $code => $data): ?>
+                    <a href="?lang=<?= $code ?>&id=<?= $id ?>" class="lang-option">
+                        <img src="<?= $data['flag'] ?>" alt="<?= $code ?>">
+                        <?= $data['label'] ?>
+                    </a>
+                <?php endforeach; ?>
+            </div>
+        </div>
+
         <?php if (($settings['dark_mode_enabled'] ?? '0') === '1'): ?>
             <button id="theme-toggle" class="theme-toggle">🌓</button>
         <?php endif; ?>
@@ -163,6 +202,7 @@ try {
               <header>
                 <div class="article-meta">
                     <span>📅 <?= date('d.m.Y', strtotime($post['created_at'])) ?></span>
+                    <span>• <?= htmlspecialchars($t_by) ?> <strong><?= htmlspecialchars($post['author_name'] ?? 'Admin') ?></strong></span>
                     <?php if ($post['category_name']): ?>
                         <span class="cat-badge"><?= htmlspecialchars($post['category_name']) ?></span>
                     <?php endif; ?>
@@ -186,7 +226,7 @@ try {
               
               <?php if (!empty($post['download_file'])): ?>
                 <div style="margin-top:30px; border-top:1px solid #eee; padding-top:20px;">
-                    <a href="/uploads/<?= htmlspecialchars($post['download_file']) ?>" class="btn-submit" style="text-decoration:none; display:inline-block; width:auto;" download>📥 <?= htmlspecialchars($i18n->t('common.download_btn') ?? 'Download File') ?></a>
+                    <a href="/uploads/<?= htmlspecialchars($post['download_file']) ?>" class="btn-submit" style="text-decoration:none; display:inline-block; width:auto;" download>📥 <?= htmlspecialchars($i18n->t('common.download_btn') ?? 'Datei Downloaden') ?></a>
                 </div>
               <?php endif; ?>
 
@@ -207,18 +247,18 @@ try {
                 <?php endforeach; ?>
 
                 <div class="comment-form">
-                    <h4 style="margin-top:0;"><?= htmlspecialchars($i18n->t('common.write_comment_headline') ?? 'Leave a comment') ?></h4>
+                    <h4 style="margin-top:0;"><?= htmlspecialchars($i18n->t('common.write_comment_headline') ?? 'Einen Kommentar schreiben') ?></h4>
                     <form method="POST">
                         <input type="hidden" name="action" value="comment">
-                        <input type="text" name="name" placeholder="<?= htmlspecialchars($i18n->t('common.placeholder_name') ?? 'Your Name') ?>" required style="width: 100%; padding: 10px; margin-bottom: 10px; border: 1px solid var(--border); border-radius: 6px; box-sizing: border-box;">
-                        <textarea name="content" rows="3" placeholder="<?= htmlspecialchars($i18n->t('common.placeholder_comment') ?? 'Your comment...') ?>" required style="width: 100%; padding: 10px; margin-bottom: 10px; border: 1px solid var(--border); border-radius: 6px; box-sizing: border-box; resize: none;"></textarea>
+                        <input type="text" name="name" placeholder="<?= htmlspecialchars($i18n->t('common.placeholder_name') ?? 'Dein Name') ?>" required style="width: 100%; padding: 10px; margin-bottom: 10px; border: 1px solid var(--border); border-radius: 6px; box-sizing: border-box;">
+                        <textarea name="content" rows="3" placeholder="<?= htmlspecialchars($i18n->t('common.placeholder_comment') ?? 'Dein Kommentar...') ?>" required style="width: 100%; padding: 10px; margin-bottom: 10px; border: 1px solid var(--border); border-radius: 6px; box-sizing: border-box; resize: none;"></textarea>
                         
                         <div style="background: var(--bg-body); padding: 10px; border-radius: 6px; margin-bottom: 10px; font-size: 0.9rem; color:var(--text-main);">
-                            <?= sprintf($i18n->t('common.spam_protection') ?? 'Spam Check: What is %d + %d?', $_SESSION['spam_a'], $_SESSION['spam_b']) ?>
+                            <?= sprintf($i18n->t('common.spam_protection') ?? 'Spam-Schutz: Was ist %d + %d?', $_SESSION['spam_a'], $_SESSION['spam_b']) ?>
                             <input type="number" name="spam_ans" required style="width: 60px; padding: 5px; margin-left: 10px; border: 1px solid var(--border); border-radius: 4px;">
                         </div>
                         
-                        <button type="submit" class="btn-submit"><?= htmlspecialchars($i18n->t('common.btn_submit_comment') ?? 'Post Comment') ?></button>
+                        <button type="submit" class="btn-submit"><?= htmlspecialchars($i18n->t('common.btn_submit_comment') ?? 'Kommentieren') ?></button>
                     </form>
                 </div>
               </section>
@@ -248,7 +288,7 @@ try {
                         <li class="comm-item">
                             <div class="comm-meta">
                                 <span class="comm-author"><?= htmlspecialchars($lc['author_name']) ?></span>
-                                <span>• <?= date($t['date_format'], strtotime($lc['created_at'])) ?></span>
+                                <span>• <?= date('d.m.Y', strtotime($lc['created_at'])) ?></span>
                             </div>
                             <a href="/article.php?id=<?= $lc['post_id'] ?>#comments" class="comm-link">
                                 “<?= htmlspecialchars($lc['title']) ?>”
@@ -272,6 +312,13 @@ try {
   <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/dockerfile.min.js"></script>
   <script>
     hljs.highlightAll();
+
+    function toggleLang() { document.getElementById('langMenu').classList.toggle('show'); }
+    window.addEventListener('click', function(e) {
+        if (!document.getElementById('langDropdown').contains(e.target)) {
+            document.getElementById('langMenu').classList.remove('show');
+        }
+    });
 
     const toggleBtn = document.getElementById('theme-toggle');
     if (toggleBtn) {

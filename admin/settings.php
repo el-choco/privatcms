@@ -3,6 +3,12 @@ declare(strict_types=1);
 session_start();
 if (empty($_SESSION['admin'])) { header('Location: /admin/login.php'); exit; }
 
+$userRole = $_SESSION['admin']['role'] ?? 'viewer';
+if ($userRole !== 'admin') {
+    header('Location: /admin/');
+    exit;
+}
+
 require_once __DIR__ . '/../src/App/Database.php';
 require_once __DIR__ . '/../src/App/BackupService.php';
 
@@ -17,7 +23,6 @@ $sLang = $t_temp['settings'] ?? [];
 
 $message = '';
 
-// Tab-Logik: Prio 1: POST (nach Speichern), Prio 2: GET (per Link), Prio 3: Default 'general'
 $activeTab = $_POST['active_tab'] ?? $_GET['tab'] ?? 'general';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -135,7 +140,7 @@ require_once 'header.php';
                     <h3><?= htmlspecialchars($sLang['sec_blog_info'] ?? 'Blog Info') ?></h3>
                     <div class="form-row">
                         <div class="form-group"><label><?= htmlspecialchars($sLang['label_blog_title'] ?? 'Title') ?></label><input type="text" name="blog_title" value="<?= htmlspecialchars($settings['blog_title'] ?? '') ?>" class="input"></div>
-                        <div class="form-group"><label><?= htmlspecialchars($sLang['label_your_name'] ?? 'Name') ?></label><input type="text" value="Paco" class="input" readonly></div>
+                        <div class="form-group"><label><?= htmlspecialchars($sLang['label_your_name'] ?? 'Name') ?></label><input type="text" value="<?= htmlspecialchars($_SESSION['admin']['username'] ?? '') ?>" class="input" readonly></div>
                     </div>
                     <div class="form-group"><label><?= htmlspecialchars($sLang['label_blog_desc'] ?? 'Description') ?></label><textarea name="blog_description" rows="3" class="input"><?= htmlspecialchars($settings['blog_description'] ?? '') ?></textarea></div>
                     <div class="form-group"><label><?= htmlspecialchars($sLang['label_posts_per_page'] ?? 'Posts per page') ?></label><input type="number" name="posts_per_page" value="<?= htmlspecialchars($settings['posts_per_page'] ?? '10') ?>" class="input" style="width:150px;"></div>
@@ -270,7 +275,6 @@ function showTab(tabId, btn) {
     btn.classList.add('active');
     document.getElementById(tabId).classList.add('active');
     
-    // Setze das versteckte Input-Feld, damit PHP weiß, welcher Tab aktiv ist
     document.getElementById('active_tab_input').value = tabId;
     
     const url = new URL(window.location);
@@ -278,13 +282,11 @@ function showTab(tabId, btn) {
     window.history.pushState({}, '', url);
 }
 
-// Initial beim Laden (falls per URL direkt angesprungen)
 const urlParams = new URLSearchParams(window.location.search);
 const t = urlParams.get('tab');
 if(t) {
     const btn = Array.from(document.querySelectorAll('.tab-btn')).find(b => b.getAttribute('onclick').includes(t));
     if(btn) {
-        // Wir nutzen die Funktion, um UI + Hidden Input zu setzen
         showTab(t, btn);
     }
 }

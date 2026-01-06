@@ -41,15 +41,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $pdo && !$needsSetup) {
     $user = $stmt->fetch();
 
     if ($user && password_verify($password, $user['password_hash'])) {
-        session_regenerate_id(true);
-        $_SESSION['admin'] = [
-            'id' => (int)$user['id'],
-            'username' => $user['username'],
-            'role' => $user['role'] ?? 'admin',
-            'source' => 'db',
-        ];
-        header('Location: /admin/');
-        exit;
+        if (($user['role'] ?? 'viewer') === 'viewer') {
+            $error = $t['error_viewer'] ?? 'Access denied';
+        } else {
+            session_regenerate_id(true);
+            $_SESSION['admin'] = [
+                'id' => (int)$user['id'],
+                'username' => $user['username'],
+                'role' => $user['role'] ?? 'admin',
+                'source' => 'db',
+            ];
+
+            try {
+                $logStmt = $pdo->prepare("INSERT INTO activity_log (user_id, action, details, ip_address) VALUES (?, 'login', 'User logged in', ?)");
+                $logStmt->execute([$user['id'], $_SERVER['REMOTE_ADDR'] ?? 'unknown']);
+            } catch (Exception $e) {
+            }
+
+            header('Location: /admin/');
+            exit;
+        }
     } else {
         $error = $t['error_invalid'] ?? 'Invalid credentials';
     }
@@ -76,8 +87,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $pdo && !$needsSetup) {
     .lang a { color: #718096; text-decoration: none; padding: 5px; }
     .lang a.active { color: #3182ce; }
     h1 { margin: 0 0 30px 0; font-size: 1.8rem; text-align: center; color: #1a202c; }
-    .footer-link { display: block; text-align: center; margin-top: 20px; color: #718096; text-decoration: none; font-size: 14px; }
-    .footer-link:hover { color: #3182ce; }
   </style>
 </head>
 <body>
@@ -110,8 +119,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $pdo && !$needsSetup) {
         <?= htmlspecialchars($t['button_login'] ?? 'Sign in') ?>
       </button>
     </form>
-
-    <a href="/admin/setup.php" class="footer-link"><?= htmlspecialchars($t['action_reset_password'] ?? 'Reset password') ?></a>
   </div>
 </body>
 </html>

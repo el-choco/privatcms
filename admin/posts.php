@@ -14,17 +14,47 @@ $t_temp = file_exists($langFile) ? parse_ini_file($langFile, true) : [];
 $pLang = $t_temp['posts'] ?? [];
 $cLang = $t_temp['common'] ?? [];
 
+$currentUser = $_SESSION['admin'];
+$isAdmin = ($currentUser['role'] ?? 'viewer') === 'admin';
+$currentUserId = (int)$currentUser['id'];
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     $id = (int)($_POST['id'] ?? 0);
     if ($id > 0) {
-        if ($_POST['action'] === 'delete') {
-            $pdo->prepare("DELETE FROM posts WHERE id = ?")->execute([$id]);
-        } elseif ($_POST['action'] === 'publish') {
-            $pdo->prepare("UPDATE posts SET status = 'published' WHERE id = ?")->execute([$id]);
-        } elseif ($_POST['action'] === 'unpublish') {
-            $pdo->prepare("UPDATE posts SET status = 'draft' WHERE id = ?")->execute([$id]);
-        } elseif ($_POST['action'] === 'toggle_sticky') {
-            $pdo->prepare("UPDATE posts SET is_sticky = 1 - is_sticky WHERE id = ?")->execute([$id]);
+        $stmt = $pdo->prepare("SELECT author_id FROM posts WHERE id = ?");
+        $stmt->execute([$id]);
+        $post = $stmt->fetch();
+
+        if ($post) {
+            $isOwner = (int)($post['author_id'] ?? 0) === $currentUserId;
+            
+            if ($isAdmin || $isOwner) {
+                if ($_POST['action'] === 'delete') {
+                    $pdo->prepare("DELETE FROM posts WHERE id = ?")->execute([$id]);
+                    try {
+                        $log = $pdo->prepare("INSERT INTO activity_log (user_id, action, details, ip_address) VALUES (?, 'delete', ?, ?)");
+                        $log->execute([$currentUserId, "Deleted post ID $id", $_SERVER['REMOTE_ADDR'] ?? 'unknown']);
+                    } catch (Exception $e) {}
+                } elseif ($_POST['action'] === 'publish') {
+                    $pdo->prepare("UPDATE posts SET status = 'published' WHERE id = ?")->execute([$id]);
+                    try {
+                        $log = $pdo->prepare("INSERT INTO activity_log (user_id, action, details, ip_address) VALUES (?, 'publish', ?, ?)");
+                        $log->execute([$currentUserId, "Published post ID $id", $_SERVER['REMOTE_ADDR'] ?? 'unknown']);
+                    } catch (Exception $e) {}
+                } elseif ($_POST['action'] === 'unpublish') {
+                    $pdo->prepare("UPDATE posts SET status = 'draft' WHERE id = ?")->execute([$id]);
+                    try {
+                        $log = $pdo->prepare("INSERT INTO activity_log (user_id, action, details, ip_address) VALUES (?, 'unpublish', ?, ?)");
+                        $log->execute([$currentUserId, "Unpublished post ID $id", $_SERVER['REMOTE_ADDR'] ?? 'unknown']);
+                    } catch (Exception $e) {}
+                } elseif ($_POST['action'] === 'toggle_sticky') {
+                    $pdo->prepare("UPDATE posts SET is_sticky = 1 - is_sticky WHERE id = ?")->execute([$id]);
+                    try {
+                        $log = $pdo->prepare("INSERT INTO activity_log (user_id, action, details, ip_address) VALUES (?, 'toggle_sticky', ?, ?)");
+                        $log->execute([$currentUserId, "Toggled sticky for post ID $id", $_SERVER['REMOTE_ADDR'] ?? 'unknown']);
+                    } catch (Exception $e) {}
+                }
+            }
         }
     }
     header("Location: posts.php"); exit;
@@ -32,8 +62,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
 
 $sql = "SELECT p.*, c.name as category_name 
         FROM posts p 
-        LEFT JOIN categories c ON p.category_id = c.id 
-        ORDER BY p.is_sticky DESC, p.created_at DESC";
+        LEFT JOIN categories c ON p.category_id = c.id ";
+
+if (!$isAdmin) {
+    $sql .= "WHERE p.author_id = " . $currentUserId . " ";
+}
+
+$sql .= "ORDER BY p.is_sticky DESC, p.created_at DESC";
 $posts = $pdo->query($sql)->fetchAll();
 
 require_once 'header.php'; 
