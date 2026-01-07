@@ -82,13 +82,13 @@ require_once 'header.php';
 <style>
     .admin-content { background: #f0f2f5; padding: 20px; min-height: 100vh; padding-bottom: 150px; }
     
-    .tab-nav { display: flex; gap: 5px; margin-bottom: 25px; border-bottom: 1px solid #e2e8f0; background: #fff; padding: 10px 15px 0; border-radius: 8px 8px 0 0; flex-wrap: wrap; }
-    .tab-btn { padding: 12px 20px; border: none; background: none; cursor: pointer; font-weight: 600; color: #718096; border-bottom: 3px solid transparent; transition: 0.2s; font-size: 14px; }
+    .tab-nav { display: flex; gap: 5px; margin-bottom: 25px; border-bottom: 1px solid #e2e8f0; background: #fff; padding: 10px 15px 0; border-radius: 8px 8px 0 0; flex-wrap: wrap; border-top: 5px solid #3182ce; justify-content: space-around; }
+    .tab-btn { padding: 12px 20px; border: none; background: none; cursor: pointer; font-weight: 600; color: #718096; border-bottom: 3px solid transparent; transition: 0.2s; font-size: 17px; }
     .tab-btn.active { color: #1877f2; border-bottom-color: #1877f2; }
-    .settings-card { background: #fff; border-radius: 12px; box-shadow: 0 2px 12px rgba(0,0,0,0.05); padding: 30px; margin-bottom: 20px; border: 1px solid #e2e8f0; }
-    .settings-card h3 { margin-top: 0; margin-bottom: 25px; font-size: 18px; border-bottom: 1px solid #edf2f7; padding-bottom: 15px; }
+    .settings-card { background: #fff; border-radius: 12px; box-shadow: 0 2px 12px rgba(0,0,0,0.05); padding: 30px; margin-bottom: 20px; border: 1px solid #e2e8f0; border-top: 5px solid #3182ce; }
+    .settings-card h3 { margin-top: 0; margin-bottom: 25px; font-size: 20px; border-bottom: 1px solid #edf2f7; padding-bottom: 15px; }
     .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px; }
-    .form-group label { display: block; font-weight: bold; margin-bottom: 8px; font-size: 14px; color: #4a5568; }
+    .form-group label { display: block; font-weight: bold; margin-bottom: 8px; font-size: 15px; color: #4a5568; }
     .input { width: 100%; padding: 12px; border: 1px solid #cbd5e0; border-radius: 8px; font-size: 14px; box-sizing: border-box; }
     .checkbox-group { display: flex; align-items: center; gap: 15px; cursor: pointer; }
     
@@ -103,18 +103,7 @@ require_once 'header.php';
     .tab-content { display: none; }
     .tab-content.active { display: block; }
     
-    .save-bar {
-        position: fixed; 
-        bottom: 20px; 
-        right: 40px;
-        z-index: 1000;
-        background: rgba(255, 255, 255, 0.9);
-        padding: 10px 20px;
-        border-radius: 12px;
-        box-shadow: 0 5px 20px rgba(0,0,0,0.15);
-        border: 1px solid #e2e8f0;
-        backdrop-filter: blur(5px);
-    }
+    .save-bar { position: fixed; bottom: 20px; right: 40px; z-index: 1000; background: rgba(255, 255, 255, 0.9); padding: 10px 20px; border-radius: 12px; box-shadow: 0 5px 20px rgba(0,0,0,0.15); border: 1px solid #e2e8f0; backdrop-filter: blur(5px);}
 </style>
 
 <div class="admin-content">

@@ -37,7 +37,7 @@ $isAdmin = $userRole === 'admin';
         .admin-sidebar { width: 260px; background: #1a202c; color: #fff; flex-shrink: 0; display: flex; flex-direction: column; }
         .sidebar-brand { padding: 25px 20px; font-size: 1.5rem; font-weight: bold; border-bottom: 1px solid #2d3748; color: #63b3ed; }
         
-        .admin-sidebar nav { flex: 1; padding: 15px 0; overflow-y: auto; }
+        .admin-sidebar nav { flex: 1; padding: 15px 0; overflow-y: auto; display: flex; flex-direction: column; }
         .admin-sidebar nav a { display: block; padding: 12px 20px; color: #cbd5e0; text-decoration: none; transition: 0.2s; border-left: 3px solid transparent; }
         .admin-sidebar nav a:hover, .admin-sidebar nav a.active { background: #2d3748; color: #fff; border-left-color: #63b3ed; }
         
@@ -97,6 +97,10 @@ $isAdmin = $userRole === 'admin';
                 <?= htmlspecialchars($t['settings']['title'] ?? 'Einstellungen') ?>
             </a>
             <?php endif; ?>
+
+            <a href="/" style="margin-top: auto; border-top: 1px solid #2d3748;">
+                <?= htmlspecialchars($t['common']['back_to_blog'] ?? '← Back to Blog') ?>
+            </a>
         </nav>
 
         <div class="sidebar-footer">
