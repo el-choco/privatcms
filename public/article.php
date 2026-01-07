@@ -69,7 +69,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     }
 }
 
-$stmt = $pdo->prepare('SELECT author_name, content, created_at FROM comments WHERE post_id = ? AND status = "approved" ORDER BY created_at DESC');
+$stmt = $pdo->prepare('SELECT author_name, content, created_at FROM comments WHERE post_id = ? AND status = "approved" ORDER BY created_at ASC');
 $stmt->execute([$id]);
 $comments = $stmt->fetchAll();
 
@@ -117,7 +117,7 @@ $languages = [
     .lang-option:hover { background: var(--bg-body); color: var(--primary); }
     .lang-option img { width: 18px; border-radius: 2px; }
 
-    .container { max-width: 1800px; margin: 0 auto; width: 95%; padding-bottom: 50px; }
+    .container { max-width: 1600px; margin: 0 auto; width: 95%; padding-bottom: 50px; }
     .layout-wrapper { display: flex; gap: 30px; align-items: flex-start; }
     .main-content { flex: 1; min-width: 0; }
     
@@ -148,7 +148,11 @@ $languages = [
     .comm-text { font-style: italic; color: var(--text-muted); font-size: 0.85rem; border-left: 2px solid var(--border); padding-left: 8px; margin-top: 2px; }
 
     .comments-section { margin-top: 50px; border-top: 1px solid var(--border); padding-top: 30px; }
-    .comment-item { background: var(--bg-body); padding: 15px; border-radius: 18px; margin-bottom: 10px; }
+    .comment-item { background: var(--bg-body); padding: 15px; border-radius: 18px; margin-bottom: 10px; border: 1px solid transparent; }
+    .comment-item.is-reply { margin-left: 50px; border: 1px solid #bbeeFF; background: #f8fbff; position: relative; }
+    .comment-item.is-reply::before { content: "↪"; position: absolute; left: -25px; top: 15px; font-size: 20px; color: var(--primary); opacity: 0.5; }
+    [data-theme="dark"] .comment-item.is-reply { background: #2a303c; border-color: #3e4c62; }
+    
     .comment-author { font-weight: bold; color: var(--text-main); font-size: 0.9rem; }
     .comment-form { background: var(--bg-card); padding: 20px; border-radius: 12px; border: 1px solid var(--border); margin-top: 30px; }
     .btn-submit { background: var(--primary); color: white; padding: 10px 20px; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; width: 100%; }
@@ -160,6 +164,7 @@ $languages = [
     @media (max-width: 1000px) {
         .sidebar { display: none !important; }
         .layout-wrapper { display: block; }
+        .comment-item.is-reply { margin-left: 20px; }
     }
   </style>
 </head>
@@ -236,13 +241,23 @@ $languages = [
                 <?php if($msg): ?><div style="background:#d1e7dd; color:#0f5132; padding:15px; border-radius:6px; margin-bottom:20px;"><?= htmlspecialchars($msg) ?></div><?php endif; ?>
                 <?php if($error): ?><div style="background:#f8d7da; color:#842029; padding:15px; border-radius:6px; margin-bottom:20px;"><?= htmlspecialchars($error) ?></div><?php endif; ?>
 
-                <?php foreach ($comments as $c): ?>
+                <?php foreach ($comments as $c): 
+                    // PRÜFUNG: Ist der Kommentar vom Artikel-Autor oder Admin?
+                    $isReply = ($c['author_name'] === ($post['author_name'] ?? '')) || $c['author_name'] === 'Admin';
+                ?>
                     <div style="margin-bottom: 15px;">
-                        <div class="comment-item">
-                            <div class="comment-author"><?= htmlspecialchars($c['author_name']) ?></div>
+                        <div class="comment-item <?= $isReply ? 'is-reply' : '' ?>">
+                            <div class="comment-author">
+                                <?= htmlspecialchars($c['author_name']) ?>
+                                <?php if($isReply): ?>
+                                    <span style="font-size:0.7em; background:var(--primary); color:#fff; padding:2px 6px; border-radius:4px; margin-left:5px; font-weight:normal;">Team</span>
+                                <?php endif; ?>
+                            </div>
                             <div style="color: inherit;"><?= nl2br(htmlspecialchars($c['content'])) ?></div>
                         </div>
-                        <div style="font-size: 0.75rem; color: var(--text-muted); margin-left: 12px;"> <?= htmlspecialchars($i18n->t('common.comment_date_at') ?? 'at') ?> <?= date('d.m.Y', strtotime($c['created_at'])) ?></div>
+                        <div style="font-size: 0.75rem; color: var(--text-muted); margin-left: <?= $isReply ? '62px' : '12px' ?>;"> 
+                            <?= htmlspecialchars($i18n->t('common.comment_date_at') ?? 'at') ?> <?= date('d.m.Y', strtotime($c['created_at'])) ?>
+                        </div>
                     </div>
                 <?php endforeach; ?>
 

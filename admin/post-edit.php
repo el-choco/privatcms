@@ -33,6 +33,9 @@ $categories = $pdo->query("SELECT * FROM categories ORDER BY name ASC")->fetchAl
 
 $uploadDir = __DIR__ . '/../public/uploads/';
 $allFiles = is_dir($uploadDir) ? array_diff(scandir($uploadDir), ['.', '..']) : [];
+usort($allFiles, function($a, $b) use ($uploadDir) {
+    return filemtime($uploadDir . $b) - filemtime($uploadDir . $a);
+});
 ?>
 <!DOCTYPE html>
 <html lang="<?= htmlspecialchars($currentLang) ?>">
@@ -60,9 +63,9 @@ $allFiles = is_dir($uploadDir) ? array_diff(scandir($uploadDir), ['.', '..']) : 
         textarea { width: 100%; height: 100%; border: none; outline: none; font-family: monospace; resize: none; font-size: 14px; }
         
         #mediaModal { display: none; position: fixed; z-index: 10000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); align-items: center; justify-content: center; }
-        .modal-content { background: white; padding: 20px; border-radius: 12px; width: 80%; max-width: 900px; max-height: 80vh; overflow-y: auto; }
-        .media-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 15px; margin-top: 15px; }
-        .media-item { cursor: pointer; border: 2px solid transparent; border-radius: 6px; overflow: hidden; transition: 0.2s; text-align: center; background: #f8fafc; padding: 5px; }
+        .modal-content { background: white; padding: 20px; border-radius: 12px; width: 80%; max-width: 900px; max-height: 80vh; overflow-y: auto; display: flex; flex-direction: column; }
+        .media-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 15px; margin-top: 15px; overflow-y: auto; }
+        .media-item { cursor: pointer; border: 2px solid transparent; border-radius: 6px; overflow: hidden; transition: 0.2s; text-align: center; background: #f8fafc; padding: 5px; position: relative; }
         .media-item:hover { border-color: #3182ce; transform: scale(1.05); }
         .media-item img { width: 100%; height: 100px; object-fit: cover; display: block; border-radius: 4px; }
         .media-item .file-icon { font-size: 3rem; line-height: 100px; height: 100px; }
@@ -316,11 +319,18 @@ $allFiles = is_dir($uploadDir) ? array_diff(scandir($uploadDir), ['.', '..']) : 
 
     <div id="mediaModal">
         <div class="modal-content">
-            <div style="display: flex; justify-content: space-between; align-items: center;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
                 <h3 style="margin: 0;"><?= htmlspecialchars($peLang['modal_media'] ?? 'Media') ?></h3>
-                <button class="btn" onclick="closeMediaModal()"><?= htmlspecialchars($peLang['btn_close'] ?? 'Close') ?></button>
+                <div style="display:flex; gap:10px;">
+                    <input type="file" id="uploadInput" style="display:none" onchange="uploadFile(this)">
+                    <button class="btn" onclick="document.getElementById('uploadInput').click()" style="background:#e7f3ff; color:#1877f2; border-color:#bee3f8;">
+                        <?= htmlspecialchars($peLang['btn_upload'] ?? 'Upload') ?>
+                    </button>
+                    <button class="btn" onclick="closeMediaModal()"><?= htmlspecialchars($peLang['btn_close'] ?? 'Close') ?></button>
+                </div>
             </div>
-            <div class="media-grid">
+            <div id="uploadStatus" style="font-size: 12px; margin-bottom: 10px; display:none;"></div>
+            <div class="media-grid" id="mediaGrid">
                 <?php foreach($allFiles as $f): ?>
                     <div class="media-item" onclick="selectImage('<?= htmlspecialchars($f) ?>')">
                         <?php if(preg_match('/\.(jpg|jpeg|png|gif|webp)$/i', $f)): ?>
@@ -353,6 +363,8 @@ $allFiles = is_dir($uploadDir) ? array_diff(scandir($uploadDir), ['.', '..']) : 
         const txtSave = "<?= htmlspecialchars($peLang['save_btn'] ?? 'Save') ?>";
         const txtError = "<?= htmlspecialchars($peLang['error_prefix'] ?? 'Error: ') ?>";
         const txtNetworkError = "<?= htmlspecialchars($peLang['error_network'] ?? 'Network Error') ?>";
+        const msgUploaded = "<?= htmlspecialchars($peLang['msg_uploaded'] ?? 'File uploaded successfully.') ?>";
+        const errorUpload = "<?= htmlspecialchars($peLang['error_upload'] ?? 'Upload failed.') ?>";
 
         const input = document.getElementById('markdown-input');
         const preview = document.getElementById('preview-box');
@@ -407,6 +419,54 @@ $allFiles = is_dir($uploadDir) ? array_diff(scandir($uploadDir), ['.', '..']) : 
                 insertTag(`\n![Bildbeschreibung](/uploads/${filename})\n`, '');
             }
             closeMediaModal();
+        }
+
+        function uploadFile(inputElement) {
+            if(inputElement.files.length === 0) return;
+            
+            const file = inputElement.files[0];
+            const formData = new FormData();
+            formData.append('file', file);
+            
+            const statusDiv = document.getElementById('uploadStatus');
+            statusDiv.style.display = 'block';
+            statusDiv.style.color = '#4a5568';
+            statusDiv.innerText = "Uploading...";
+
+            fetch('upload-handler.php', {
+                method: 'POST',
+                body: formData
+            })
+            .then(res => res.json())
+            .then(data => {
+                if(data.status === 'ok') {
+                    statusDiv.style.color = 'green';
+                    statusDiv.innerText = msgUploaded;
+                    
+                    const grid = document.getElementById('mediaGrid');
+                    const div = document.createElement('div');
+                    div.className = 'media-item';
+                    div.onclick = function() { selectImage(data.filename); };
+                    
+                    if (data.filename.match(/\.(jpg|jpeg|png|gif|webp)$/i)) {
+                        div.innerHTML = `<img src="/uploads/${data.filename}" title="${data.filename}">`;
+                    } else {
+                        div.innerHTML = `<div class="file-icon" title="${data.filename}">📄</div><div style="font-size: 10px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${data.filename}</div>`;
+                    }
+                    
+                    grid.insertBefore(div, grid.firstChild);
+                    
+                    setTimeout(() => { statusDiv.style.display = 'none'; }, 2000);
+                } else {
+                    statusDiv.style.color = 'red';
+                    statusDiv.innerText = errorUpload + " " + (data.error || '');
+                }
+            })
+            .catch(err => {
+                statusDiv.style.color = 'red';
+                statusDiv.innerText = txtNetworkError;
+            });
+            inputElement.value = ''; 
         }
 
         const smileys = [

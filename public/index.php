@@ -39,15 +39,26 @@ try {
     }
 } catch (Exception $e) { }
 
-$stmt = $pdo->query('
-  SELECT p.id, p.title, p.excerpt, p.hero_image, p.created_at, p.is_sticky, c.name AS category, u.username AS author_name
-  FROM posts p
-  LEFT JOIN categories c ON c.id = p.category_id
-  LEFT JOIN users u ON p.author_id = u.id
-  WHERE p.status = "published"
-  ORDER BY p.is_sticky DESC, p.created_at DESC
-  LIMIT ' . (int)($settings['posts_per_page'] ?? 12)
-);
+$categoryId = isset($_GET['category']) ? (int)$_GET['category'] : 0;
+$limit = (int)($settings['posts_per_page'] ?? 12);
+
+$sql = 'SELECT p.id, p.title, p.excerpt, p.hero_image, p.created_at, p.is_sticky, c.name AS category, u.username AS author_name
+        FROM posts p
+        LEFT JOIN categories c ON c.id = p.category_id
+        LEFT JOIN users u ON p.author_id = u.id
+        WHERE p.status = "published"';
+
+$params = [];
+
+if ($categoryId > 0) {
+    $sql .= ' AND p.category_id = ?';
+    $params[] = $categoryId;
+}
+
+$sql .= ' ORDER BY p.is_sticky DESC, p.created_at DESC LIMIT ' . $limit;
+
+$stmt = $pdo->prepare($sql);
+$stmt->execute($params);
 $posts = $stmt->fetchAll();
 
 $cats = $pdo->query("SELECT c.id, c.name, COUNT(p.id) as count FROM categories c LEFT JOIN posts p ON p.category_id = c.id AND p.status = 'published' GROUP BY c.id ORDER BY c.name ASC")->fetchAll();
@@ -81,8 +92,8 @@ $languages = [
     }
     body { background-color: var(--bg-body); color: var(--text-main); margin: 0; font-family: -apple-system, sans-serif; transition: background 0.3s, color 0.3s; scroll-behavior: smooth; }
     
-    .site-header { background-color: var(--header-bg); color: var(--header-text); padding: 12px 0; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 30px; }
-    .header-container { max-width: 1800px; margin: 0 auto; width: 95%; display: flex; justify-content: space-between; align-items: center; }
+    .site-header { background-color: var(--header-bg); color: var(--header-text); padding: 12px 0; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 15px; max-width: 1500px; margin-right: auto; margin-left: auto; border-radius: 6px; }
+    .header-container { max-width: 1600px; margin: 0 auto; width: 95%; display: flex; justify-content: space-between; align-items: center; }
     .site-title { font-size: 24px; font-weight: bold; color: var(--header-text); text-decoration: none; }
     .header-actions { display: flex; align-items: center; gap: 15px; }
     .btn-admin { background-color: rgba(255,255,255,0.2); color: var(--header-text); text-decoration: none; padding: 8px 16px; border-radius: 6px; font-weight: 600; font-size: 0.9rem; }
@@ -97,7 +108,7 @@ $languages = [
     .lang-option:hover { background: var(--bg-body); color: var(--primary); }
     .lang-option img { width: 18px; border-radius: 2px; }
 
-    .container { max-width: 1800px; margin: 0 auto; width: 95%; }
+    .container { max-width: 1535px; margin: 0 auto; width: 95%; }
     .layout-wrapper { display: flex; gap: 30px; align-items: flex-start; }
     .main-content { flex: 1; min-width: 0; }
     .sidebar { width: 320px; flex-shrink: 0; position: sticky; top: 20px; display: flex; flex-direction: column; gap: 20px; }
