@@ -37,7 +37,7 @@ require_once 'header.php';
 
 <div class="content-area">
     <div style="display: flex; justify-content: center; padding-top: 20px;">
-        <div style="width: 100%; max-width: 1200px;">
+        <div style="width: 100%; max-width: 1500px;">
             <header style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px;">
                 <h1 style="margin:0; font-size: 1.5rem; color: #1a202c;">
                     <?= htmlspecialchars($uLang['title'] ?? 'User Management') ?>
@@ -84,6 +84,75 @@ require_once 'header.php';
                     </tbody>
                 </table>
             </div>
+
+            <div style="margin-top: 40px;">
+                <h3 style="color: #4a5568; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px; margin-bottom: 20px;">
+                    <?= htmlspecialchars($uLang['perm_title'] ?? 'Permissions Overview') ?>
+                </h3>
+                <div class="card" style="overflow: hidden;">
+                    <table style="width: 100%; border-collapse: collapse; text-align: center;">
+                        <thead>
+                            <tr style="background: #f1f5f9;">
+                                <th style="padding: 12px; text-align: left; width: 40%; color: #4a5568;"><?= htmlspecialchars($uLang['perm_action'] ?? 'Action') ?></th>
+                                <th style="padding: 12px; width: 20%; color: #718096;">Viewer</th>
+                                <th style="padding: 12px; width: 20%; color: #3182ce;">Editor</th>
+                                <th style="padding: 12px; width: 20%; color: #2f855a;">Admin</th>
+                            </tr>
+                        </thead>
+                        <tbody style="font-size: 0.95rem;">
+                            <tr style="border-bottom: 1px solid #f7fafc;">
+                                <td style="padding: 10px; text-align: left;"><?= htmlspecialchars($uLang['p_login'] ?? 'Admin Login') ?></td>
+                                <td style="color: #e53e3e;">❌</td>
+                                <td style="color: #38a169;">✅</td>
+                                <td style="color: #38a169;">✅</td>
+                            </tr>
+                            <tr style="border-bottom: 1px solid #f7fafc;">
+                                <td style="padding: 10px; text-align: left;"><?= htmlspecialchars($uLang['p_own_posts'] ?? 'Create/Edit Own Posts') ?></td>
+                                <td style="color: #e53e3e;">❌</td>
+                                <td style="color: #38a169;">✅</td>
+                                <td style="color: #38a169;">✅</td>
+                            </tr>
+                            <tr style="border-bottom: 1px solid #f7fafc;">
+                                <td style="padding: 10px; text-align: left;"><?= htmlspecialchars($uLang['p_files'] ?? 'Upload Files') ?></td>
+                                <td style="color: #e53e3e;">❌</td>
+                                <td style="color: #38a169;">✅</td>
+                                <td style="color: #38a169;">✅</td>
+                            </tr>
+                            <tr style="border-bottom: 1px solid #f7fafc;">
+                                <td style="padding: 10px; text-align: left;"><?= htmlspecialchars($uLang['p_publish'] ?? 'Publish/Stick Posts') ?></td>
+                                <td style="color: #e53e3e;">❌</td>
+                                <td style="color: #38a169;"><?= htmlspecialchars($uLang['p_own_only'] ?? 'Own only') ?></td>
+                                <td style="color: #38a169;">✅</td>
+                            </tr>
+                            <tr style="border-bottom: 1px solid #f7fafc;">
+                                <td style="padding: 10px; text-align: left;"><?= htmlspecialchars($uLang['p_categories'] ?? 'Manage Categories') ?></td>
+                                <td style="color: #e53e3e;">❌</td>
+                                <td style="color: #e53e3e;">❌</td>
+                                <td style="color: #38a169;">✅</td>
+                            </tr>
+                            <tr style="border-bottom: 1px solid #f7fafc;">
+                                <td style="padding: 10px; text-align: left;"><?= htmlspecialchars($uLang['p_comments'] ?? 'Manage Comments') ?></td>
+                                <td style="color: #e53e3e;">❌</td>
+                                <td style="color: #e53e3e;">❌</td>
+                                <td style="color: #38a169;">✅</td>
+                            </tr>
+                            <tr style="border-bottom: 1px solid #f7fafc;">
+                                <td style="padding: 10px; text-align: left;"><?= htmlspecialchars($uLang['p_users'] ?? 'Manage Users') ?></td>
+                                <td style="color: #e53e3e;">❌</td>
+                                <td style="color: #e53e3e;">❌</td>
+                                <td style="color: #38a169;">✅</td>
+                            </tr>
+                            <tr>
+                                <td style="padding: 10px; text-align: left;"><?= htmlspecialchars($uLang['p_settings'] ?? 'System Settings') ?></td>
+                                <td style="color: #e53e3e;">❌</td>
+                                <td style="color: #e53e3e;">❌</td>
+                                <td style="color: #38a169;">✅</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
         </div>
     </div>
 </div>

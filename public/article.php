@@ -101,7 +101,7 @@ $languages = [
     
     body { background-color: var(--bg-body); color: var(--text-main); margin: 0; font-family: -apple-system, sans-serif; transition: background 0.3s, color 0.3s; scroll-behavior: smooth; }
     
-    .top-nav { background-color: var(--primary); color: white; padding: 12px 0; box-shadow: 0 2px 4px rgba(0,0,0,0.1); width: 100%; margin-bottom: 30px; }
+    .top-nav { background-color: var(--primary); color: white; padding: 12px 0; box-shadow: 0 2px 4px rgba(0,0,0,0.1); width: 100%; margin-bottom: 30px; max-width: 1567px; margin-right: auto; margin-left: auto; border-radius: 6px; }
     .nav-container { max-width: 1800px; margin: 0 auto; width: 95%; display: flex; justify-content: space-between; align-items: center; }
     .brand { font-size: 24px; font-weight: bold; text-decoration: none; color: white; }
     .btn-home { background-color: rgba(255,255,255,0.2); color: white; text-decoration: none; padding: 8px 16px; border-radius: 6px; font-weight: 600; transition: background 0.2s; }

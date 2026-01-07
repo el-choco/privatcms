@@ -53,7 +53,7 @@ require_once 'header.php';
 
 <div class="content-area">
     <div style="display: flex; justify-content: center; padding-top: 20px;">
-        <div style="width: 100%; max-width: 1000px;">
+        <div style="width: 100%; max-width: 1500px;">
             
             <header style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px;">
                 <h1 style="margin:0; font-size: 1.5rem; color: #1a202c;"><?= htmlspecialchars($t['categories']['manage_title']) ?></h1>

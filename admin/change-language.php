@@ -21,7 +21,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 require_once 'header.php';
 
-// Erweiterte Zeitzonen-Liste
 $timezones = [
     'Europe/Berlin' => 'Berlin (UTC+1/+2)',
     'Europe/London' => 'London (UTC+0/+1)',
@@ -42,7 +41,6 @@ $currentTz = $_SESSION['timezone'] ?? date_default_timezone_get();
 $currentFmt = $_SESSION['date_fmt'] ?? 'd.m.Y';
 $currentLangSelect = $_SESSION['lang'] ?? 'de';
 
-// Sprachen Definition mit Flaggen-URLs
 $languages = [
     'de' => ['label' => 'Deutsch',  'flag' => 'https://flagcdn.com/w40/de.png'],
     'en' => ['label' => 'English',  'flag' => 'https://flagcdn.com/w40/gb.png'],
@@ -56,7 +54,6 @@ $languages = [
 </header>
 
 <style>
-    /* Custom Dropdown Styling */
     .custom-select-wrapper { position: relative; user-select: none; width: 100%; }
     .custom-select-trigger {
         position: relative; display: flex; align-items: center; justify-content: space-between;
@@ -85,7 +82,7 @@ $languages = [
 
 <div class="content-area">
     <div style="display: flex; justify-content: center; align-items: flex-start; padding-top: 40px; height: 100%;">
-        <div class="card" style="width: 100%; max-width: 850px; padding: 50px; border-top: 6px solid #3182ce; box-shadow: 0 10px 25px rgba(0,0,0,0.08); text-align: center;">
+        <div class="card" style="width: 100%; max-width: 1500px; padding: 50px; border-top: 6px solid #3182ce; box-shadow: 0 10px 25px rgba(0,0,0,0.08); text-align: center;">
             
             <?php if ($msg === 'success'): ?>
                 <div class="alert-success" style="text-align: left; margin-bottom: 30px;">
@@ -161,34 +158,28 @@ $languages = [
 </div>
 
 <script>
-// Logik für das Custom Dropdown
 document.querySelector('.custom-select-trigger').addEventListener('click', function() {
     this.closest('.custom-select-wrapper').classList.toggle('open');
 });
 
 document.querySelectorAll('.custom-option').forEach(function(option) {
     option.addEventListener('click', function() {
-        // Werte holen
         const val = this.getAttribute('data-value');
         const imgSrc = this.getAttribute('data-img');
         const text = this.innerText;
 
-        // UI aktualisieren
         this.closest('.custom-select-wrapper').classList.remove('open');
         
         const trigger = this.closest('.custom-select-wrapper').querySelector('.custom-select-trigger span');
         trigger.innerHTML = `<img src="${imgSrc}"> ${text}`;
         
-        // Verstecktes Input updaten (für PHP)
         document.getElementById('langInput').value = val;
         
-        // Markierung verschieben
         document.querySelectorAll('.custom-option').forEach(opt => opt.classList.remove('selected'));
         this.classList.add('selected');
     });
 });
 
-// Schließen wenn man woanders klickt
 window.addEventListener('click', function(e) {
     const select = document.querySelector('.custom-select-wrapper');
     if (!select.contains(e.target)) {
