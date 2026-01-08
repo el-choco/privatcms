@@ -21,7 +21,11 @@ $t = [
     'sb_cat_title'   => $iniLang['categories']['title'] ?? 'Categories',
     'sb_comm_title'  => $iniLang['comments']['title'] ?? 'Comments',
     'sb_no_comm'     => $iniLang['comments']['no_comments'] ?? '-',
-    'by'             => $iniLang['frontend']['by'] ?? 'by'
+    'by'             => $iniLang['frontend']['by'] ?? 'by',
+    'sb_search_title'=> $iniLang['frontend']['search_title'] ?? 'Search',
+    'search_ph'      => $iniLang['frontend']['search_placeholder'] ?? 'Search...',
+    'no_results'     => $iniLang['frontend']['search_no_results'] ?? 'No posts found.',
+    'search_btn'     => $iniLang['frontend']['search_button'] ?? 'Go'
 ];
 
 require_once __DIR__ . '/../src/App/Database.php';
@@ -40,6 +44,7 @@ try {
 } catch (Exception $e) { }
 
 $categoryId = isset($_GET['category']) ? (int)$_GET['category'] : 0;
+$searchQuery = isset($_GET['q']) ? trim($_GET['q']) : '';
 $limit = (int)($settings['posts_per_page'] ?? 12);
 
 $sql = 'SELECT p.id, p.title, p.excerpt, p.hero_image, p.created_at, p.is_sticky, c.name AS category, u.username AS author_name
@@ -53,6 +58,14 @@ $params = [];
 if ($categoryId > 0) {
     $sql .= ' AND p.category_id = ?';
     $params[] = $categoryId;
+}
+
+if ($searchQuery !== '') {
+    $sql .= ' AND (p.title LIKE ? OR p.excerpt LIKE ? OR p.content LIKE ?)';
+    $like = '%' . $searchQuery . '%';
+    $params[] = $like;
+    $params[] = $like;
+    $params[] = $like;
 }
 
 $sql .= ' ORDER BY p.is_sticky DESC, p.created_at DESC LIMIT ' . $limit;
@@ -192,35 +205,49 @@ $languages = [
     <div class="layout-wrapper">
         <section class="main-content">
             <div class="posts-grid">
-                <?php $i = 0; foreach ($posts as $p): $i++; ?>
-                    <article class="post-card <?= (!empty($p['is_sticky'])) ? 'is-sticky' : '' ?> <?= ($i === 1) ? 'highlight' : '' ?>">
-                    <a class="post-card__media" href="/article.php?id=<?= (int)$p['id'] ?>">
-                        <?php if (!empty($p['hero_image'])): ?>
-                        <img src="/uploads/<?= htmlspecialchars($p['hero_image']) ?>" alt="<?= htmlspecialchars($p['title']) ?>" loading="lazy">
-                        <?php else: ?>
-                        <div style="height:100%; display:flex; align-items:center; justify-content:center; color:#8b9dc3; font-weight:bold;"><?= htmlspecialchars($t['no_image']) ?></div>
-                        <?php endif; ?>
-                    </a>
-                    <div class="post-card__content">
-                        <div class="post-card__meta">
-                        <?php if (!empty($p['is_sticky'])): ?><span class="badge-sticky"><?= htmlspecialchars($t['sticky']) ?></span><?php endif; ?>
-                        <?php if (!empty($p['category'])): ?><span class="badge"><?= htmlspecialchars($p['category']) ?></span><?php endif; ?>
-                        <span class="date"><?= date($t['date_format'], strtotime($p['created_at'])) ?></span>
-                        <span class="author">
-                             • <?= htmlspecialchars($t['by']) ?> 
-                             <strong><?= htmlspecialchars($p['author_name'] ?? 'Admin') ?></strong>
-                        </span>
-                        </div>
-                        <h2 class="post-card__title"><a href="/article.php?id=<?= (int)$p['id'] ?>"><?= htmlspecialchars($p['title']) ?></a></h2>
-                        <p class="post-card__excerpt"><?= htmlspecialchars($p['excerpt'] ?? '') ?></p>
-                        <a class="post-card__cta" href="/article.php?id=<?= (int)$p['id'] ?>"><?= htmlspecialchars($t['read_more']) ?></a>
+                <?php if (empty($posts)): ?>
+                    <div style="grid-column: 1 / -1; text-align: center; padding: 50px; color: var(--text-muted); font-size: 1.1rem; background: var(--bg-card); border-radius: 12px; border: 1px solid var(--border);">
+                        <?= htmlspecialchars($t['no_results']) ?>
                     </div>
-                    </article>
-                <?php endforeach; ?>
+                <?php else: ?>
+                    <?php $i = 0; foreach ($posts as $p): $i++; ?>
+                        <article class="post-card <?= (!empty($p['is_sticky'])) ? 'is-sticky' : '' ?> <?= ($i === 1 && $searchQuery === '' && $categoryId === 0) ? 'highlight' : '' ?>">
+                        <a class="post-card__media" href="/article.php?id=<?= (int)$p['id'] ?>">
+                            <?php if (!empty($p['hero_image'])): ?>
+                            <img src="/uploads/<?= htmlspecialchars($p['hero_image']) ?>" alt="<?= htmlspecialchars($p['title']) ?>" loading="lazy">
+                            <?php else: ?>
+                            <div style="height:100%; display:flex; align-items:center; justify-content:center; color:#8b9dc3; font-weight:bold;"><?= htmlspecialchars($t['no_image']) ?></div>
+                            <?php endif; ?>
+                        </a>
+                        <div class="post-card__content">
+                            <div class="post-card__meta">
+                            <?php if (!empty($p['is_sticky'])): ?><span class="badge-sticky"><?= htmlspecialchars($t['sticky']) ?></span><?php endif; ?>
+                            <?php if (!empty($p['category'])): ?><span class="badge"><?= htmlspecialchars($p['category']) ?></span><?php endif; ?>
+                            <span class="date"><?= date($t['date_format'], strtotime($p['created_at'])) ?></span>
+                            <span class="author">
+                                • <?= htmlspecialchars($t['by']) ?> 
+                                <strong><?= htmlspecialchars($p['author_name'] ?? 'Admin') ?></strong>
+                            </span>
+                            </div>
+                            <h2 class="post-card__title"><a href="/article.php?id=<?= (int)$p['id'] ?>"><?= htmlspecialchars($p['title']) ?></a></h2>
+                            <p class="post-card__excerpt"><?= htmlspecialchars($p['excerpt'] ?? '') ?></p>
+                            <a class="post-card__cta" href="/article.php?id=<?= (int)$p['id'] ?>"><?= htmlspecialchars($t['read_more']) ?></a>
+                        </div>
+                        </article>
+                    <?php endforeach; ?>
+                <?php endif; ?>
             </div>
         </section>
 
         <aside class="sidebar">
+            <div class="sidebar-widget">
+                <h3 class="sidebar-title">🔍 <?= htmlspecialchars($t['sb_search_title']) ?></h3>
+                <form action="/index.php" method="get" style="display:flex; gap:8px;">
+                    <input type="text" name="q" placeholder="<?= htmlspecialchars($t['search_ph']) ?>" value="<?= htmlspecialchars($searchQuery) ?>" style="flex:1; padding:8px 12px; border:1px solid var(--border); border-radius:6px; background:var(--bg-body); color:var(--text-main); font-family:inherit;">
+                    <button type="submit" style="background:var(--primary); color:white; border:none; padding:8px 12px; border-radius:6px; cursor:pointer; font-weight:bold;"><?= htmlspecialchars($t['search_btn']) ?></button>
+                </form>
+            </div>
+
             <div class="sidebar-widget">
                 <h3 class="sidebar-title"><?= htmlspecialchars($t['sb_cat_title']) ?></h3>
                 <ul class="cat-list">
