@@ -13,6 +13,7 @@ PiperBlog comes packed with features for content creators and administrators:
 * **Post Status:** Manage posts as *Draft*, *Published*, or *Archived*.
 * **Sticky Posts:** Pin important posts to the top of the homepage (📌 Feature).
 * **Categories:** Organize your content into flexible categories.
+* **Tags:** Organize articles with specific keywords (Tags) for better discoverability.
 * **Syntax Highlighting:** Automatic highlighting of code blocks for technical blogs.
 
 ### 🖼️ Media & Files
@@ -27,14 +28,17 @@ PiperBlog comes packed with features for content creators and administrators:
 
 ### ⚙️ Administration & System
 * **Comprehensive Dashboard:** Statistics on posts, comments, and system status at a glance.
+* **Multi-User System:** Role-based permissions (Admin, Editor, Viewer) to manage team access secure.
 * **Settings:** Configure blog title, description, SMTP mail server, and more directly in the admin panel.
 * **Backup System:** Create and download backups of your data (JSON, CSV, or Full ZIP).
 * **Maintenance Mode:** Temporarily take the site offline for updates.
 
 ### 🎨 Design & UX
+* **Search Function:** Integrated search bar to find content instantly.
+* **Pagination:** Smart pagination for easy browsing of article archives.
 * **Dark Mode:** Visitors can toggle between light and dark mode 🌓.
 * **Responsive Design:** Optimized for desktop, tablet, and mobile.
-* **Sidebar:** Dynamic sidebar with categories and latest comments.
+* **Sidebar:** Dynamic sidebar with categories, tags cloud, and latest comments.
 * **Back-to-Top:** Convenient navigation for long articles.
 
 ### 🌍 Internationalization (i18n)
@@ -118,6 +122,7 @@ PiperBlog kommt vollgepackt mit Funktionen für Content-Ersteller und Administra
 * **Beitragsstatus:** Verwalte Beiträge als *Entwurf*, *Veröffentlicht* oder *Archiviert*.
 * **Sticky Posts:** Pinne wichtige Beiträge oben an die Startseite (📌 Feature).
 * **Kategorien:** Organisiere deine Inhalte in flexiblen Kategorien.
+* **Tags (Schlagwörter):** Organisiere Artikel mit spezifischen Schlagwörtern (Tags) für bessere Auffindbarkeit.
 * **Syntax Highlighting:** Automatische Hervorhebung von Code-Blöcken für technische Blogs.
 
 ### 🖼️ Medien & Dateien
@@ -132,14 +137,17 @@ PiperBlog kommt vollgepackt mit Funktionen für Content-Ersteller und Administra
 
 ### ⚙️ Administration & System
 * **Umfangreiches Dashboard:** Statistiken zu Posts, Kommentaren und Systemstatus auf einen Blick.
+* **Multi-User-System:** Rollenbasiertes Rechtesystem (Admin, Editor, Viewer) zur sicheren Verwaltung von Team-Zugriffen.
 * **Einstellungen:** Konfiguriere Blog-Titel, Beschreibung, SMTP-Mail-Server und mehr direkt im Admin-Panel.
 * **Backup-System:** Erstelle und lade Backups deiner Daten (JSON, CSV oder Full ZIP) herunter.
 * **Wartungsmodus:** Schalte die Seite temporär offline für Updates.
 
 ### 🎨 Design & UX
+* **Suchfunktion:** Integrierte Suchleiste, um Inhalte sofort zu finden.
+* **Paginierung:** Intelligente Seitennummerierung für einfaches Durchstöbern des Archivs.
 * **Dark Mode:** Besucher können zwischen Hell- und Dunkelmodus wechseln 🌓.
 * **Responsives Design:** Optimiert für Desktop, Tablet und Mobile.
-* **Sidebar:** Dynamische Sidebar mit Kategorien und neuesten Kommentaren.
+* **Sidebar:** Dynamische Sidebar mit Kategorien, Tag-Cloud und neuesten Kommentaren.
 * **Back-to-Top:** Bequeme Navigation für lange Artikel.
 
 ### 🌍 Internationalisierung (i18n)
