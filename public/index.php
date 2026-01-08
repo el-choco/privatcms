@@ -25,7 +25,9 @@ $t = [
     'sb_search_title'=> $iniLang['frontend']['search_title'] ?? 'Search',
     'search_ph'      => $iniLang['frontend']['search_placeholder'] ?? 'Search...',
     'no_results'     => $iniLang['frontend']['search_no_results'] ?? 'No posts found.',
-    'search_btn'     => $iniLang['frontend']['search_button'] ?? 'Go'
+    'search_btn'     => $iniLang['frontend']['search_button'] ?? 'Go',
+    'page_prev'      => $iniLang['frontend']['pagination_prev'] ?? '«',
+    'page_next'      => $iniLang['frontend']['pagination_next'] ?? '»'
 ];
 
 require_once __DIR__ . '/../src/App/Database.php';
@@ -45,30 +47,37 @@ try {
 
 $categoryId = isset($_GET['category']) ? (int)$_GET['category'] : 0;
 $searchQuery = isset($_GET['q']) ? trim($_GET['q']) : '';
+$page = isset($_GET['page']) ? max(1, (int)$_GET['page']) : 1;
 $limit = (int)($settings['posts_per_page'] ?? 12);
+$offset = ($page - 1) * $limit;
 
-$sql = 'SELECT p.id, p.title, p.excerpt, p.hero_image, p.created_at, p.is_sticky, c.name AS category, u.username AS author_name
-        FROM posts p
-        LEFT JOIN categories c ON c.id = p.category_id
-        LEFT JOIN users u ON p.author_id = u.id
-        WHERE p.status = "published"';
-
+$whereSql = ' WHERE p.status = "published"';
 $params = [];
 
 if ($categoryId > 0) {
-    $sql .= ' AND p.category_id = ?';
+    $whereSql .= ' AND p.category_id = ?';
     $params[] = $categoryId;
 }
 
 if ($searchQuery !== '') {
-    $sql .= ' AND (p.title LIKE ? OR p.excerpt LIKE ? OR p.content LIKE ?)';
+    $whereSql .= ' AND (p.title LIKE ? OR p.excerpt LIKE ? OR p.content LIKE ?)';
     $like = '%' . $searchQuery . '%';
     $params[] = $like;
     $params[] = $like;
     $params[] = $like;
 }
 
-$sql .= ' ORDER BY p.is_sticky DESC, p.created_at DESC LIMIT ' . $limit;
+$countStmt = $pdo->prepare('SELECT COUNT(*) FROM posts p ' . $whereSql);
+$countStmt->execute($params);
+$totalPosts = (int)$countStmt->fetchColumn();
+$totalPages = (int)ceil($totalPosts / $limit);
+
+$sql = 'SELECT p.id, p.title, p.excerpt, p.hero_image, p.created_at, p.is_sticky, c.name AS category, u.username AS author_name
+        FROM posts p
+        LEFT JOIN categories c ON c.id = p.category_id
+        LEFT JOIN users u ON p.author_id = u.id' . 
+        $whereSql . 
+        ' ORDER BY p.is_sticky DESC, p.created_at DESC LIMIT ' . $limit . ' OFFSET ' . $offset;
 
 $stmt = $pdo->prepare($sql);
 $stmt->execute($params);
@@ -83,6 +92,12 @@ $languages = [
     'fr' => ['label' => 'Français', 'flag' => 'https://flagcdn.com/w40/fr.png'],
     'es' => ['label' => 'Español',  'flag' => 'https://flagcdn.com/w40/es.png']
 ];
+
+function buildUrl($newPage) {
+    $params = $_GET;
+    $params['page'] = $newPage;
+    return '?' . http_build_query($params);
+}
 ?>
 <!DOCTYPE html>
 <html lang="<?= htmlspecialchars($currentLang) ?>" data-theme="light">
@@ -143,6 +158,12 @@ $languages = [
     .post-card__excerpt { color: var(--text-main); opacity: 0.8; line-height: 1.5; margin-bottom: 20px; font-size: 0.95rem; }
     .post-card__cta { margin-top: auto; background: var(--bg-body); color: var(--primary); text-align: center; padding: 10px; border-radius: 6px; text-decoration: none; font-weight: bold; transition: background 0.2s; }
     .post-card__cta:hover { background: var(--primary); color: white; }
+
+    .pagination { display: flex; justify-content: center; gap: 10px; margin-top: 40px; margin-bottom: 40px; }
+    .page-link { padding: 10px 15px; background: var(--bg-card); border: 1px solid var(--border); border-radius: 6px; color: var(--text-main); text-decoration: none; font-weight: bold; transition: 0.2s; }
+    .page-link:hover { background: var(--primary); color: white; border-color: var(--primary); }
+    .page-link.active { background: var(--primary); color: white; border-color: var(--primary); pointer-events: none; }
+    .page-link.disabled { opacity: 0.5; pointer-events: none; }
 
     @media (min-width: 1200px) {
         .post-card.highlight { grid-column: span 2; flex-direction: row; }
@@ -211,7 +232,7 @@ $languages = [
                     </div>
                 <?php else: ?>
                     <?php $i = 0; foreach ($posts as $p): $i++; ?>
-                        <article class="post-card <?= (!empty($p['is_sticky'])) ? 'is-sticky' : '' ?> <?= ($i === 1 && $searchQuery === '' && $categoryId === 0) ? 'highlight' : '' ?>">
+                        <article class="post-card <?= (!empty($p['is_sticky'])) ? 'is-sticky' : '' ?> <?= ($i === 1 && $searchQuery === '' && $categoryId === 0 && $page === 1) ? 'highlight' : '' ?>">
                         <a class="post-card__media" href="/article.php?id=<?= (int)$p['id'] ?>">
                             <?php if (!empty($p['hero_image'])): ?>
                             <img src="/uploads/<?= htmlspecialchars($p['hero_image']) ?>" alt="<?= htmlspecialchars($p['title']) ?>" loading="lazy">
@@ -237,6 +258,24 @@ $languages = [
                     <?php endforeach; ?>
                 <?php endif; ?>
             </div>
+
+            <?php if ($totalPages > 1): ?>
+            <div class="pagination">
+                <?php if ($page > 1): ?>
+                    <a href="<?= buildUrl($page - 1) ?>" class="page-link"><?= htmlspecialchars($t['page_prev']) ?></a>
+                <?php endif; ?>
+
+                <?php for ($i = 1; $i <= $totalPages; $i++): ?>
+                    <a href="<?= buildUrl($i) ?>" class="page-link <?= ($i === $page) ? 'active' : '' ?>">
+                        <?= $i ?>
+                    </a>
+                <?php endfor; ?>
+
+                <?php if ($page < $totalPages): ?>
+                    <a href="<?= buildUrl($page + 1) ?>" class="page-link"><?= htmlspecialchars($t['page_next']) ?></a>
+                <?php endif; ?>
+            </div>
+            <?php endif; ?>
         </section>
 
         <aside class="sidebar">
