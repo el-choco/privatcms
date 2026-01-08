@@ -27,7 +27,8 @@ $t = [
     'no_results'     => $iniLang['frontend']['search_no_results'] ?? 'No posts found.',
     'search_btn'     => $iniLang['frontend']['search_button'] ?? 'Go',
     'page_prev'      => $iniLang['frontend']['pagination_prev'] ?? '«',
-    'page_next'      => $iniLang['frontend']['pagination_next'] ?? '»'
+    'page_next'      => $iniLang['frontend']['pagination_next'] ?? '»',
+    'sb_tags_title'  => $iniLang['frontend']['tags_title'] ?? 'Tags'
 ];
 
 require_once __DIR__ . '/../src/App/Database.php';
@@ -46,44 +47,57 @@ try {
 } catch (Exception $e) { }
 
 $categoryId = isset($_GET['category']) ? (int)$_GET['category'] : 0;
+$tagSlug = isset($_GET['tag']) ? trim($_GET['tag']) : '';
 $searchQuery = isset($_GET['q']) ? trim($_GET['q']) : '';
 $page = isset($_GET['page']) ? max(1, (int)$_GET['page']) : 1;
 $limit = (int)($settings['posts_per_page'] ?? 12);
 $offset = ($page - 1) * $limit;
 
-$whereSql = ' WHERE p.status = "published"';
+$sqlBase = ' FROM posts p 
+             LEFT JOIN categories c ON c.id = p.category_id
+             LEFT JOIN users u ON p.author_id = u.id ';
+
+$where = ' WHERE p.status = "published" ';
 $params = [];
 
+// JOIN für Tags
+if ($tagSlug !== '') {
+    $sqlBase .= ' JOIN post_tags pt ON p.id = pt.post_id JOIN tags t ON pt.tag_id = t.id ';
+    $where .= ' AND t.slug = ? ';
+    $params[] = $tagSlug;
+}
+
 if ($categoryId > 0) {
-    $whereSql .= ' AND p.category_id = ?';
+    $where .= ' AND p.category_id = ? ';
     $params[] = $categoryId;
 }
 
 if ($searchQuery !== '') {
-    $whereSql .= ' AND (p.title LIKE ? OR p.excerpt LIKE ? OR p.content LIKE ?)';
+    $where .= ' AND (p.title LIKE ? OR p.excerpt LIKE ? OR p.content LIKE ?) ';
     $like = '%' . $searchQuery . '%';
     $params[] = $like;
     $params[] = $like;
     $params[] = $like;
 }
 
-$countStmt = $pdo->prepare('SELECT COUNT(*) FROM posts p ' . $whereSql);
+// Zählen für Paginierung
+$countStmt = $pdo->prepare('SELECT COUNT(DISTINCT p.id) ' . $sqlBase . $where);
 $countStmt->execute($params);
 $totalPosts = (int)$countStmt->fetchColumn();
 $totalPages = (int)ceil($totalPosts / $limit);
 
-$sql = 'SELECT p.id, p.title, p.excerpt, p.hero_image, p.created_at, p.is_sticky, c.name AS category, u.username AS author_name
-        FROM posts p
-        LEFT JOIN categories c ON c.id = p.category_id
-        LEFT JOIN users u ON p.author_id = u.id' . 
-        $whereSql . 
+// Beiträge holen
+$sql = 'SELECT DISTINCT p.id, p.title, p.excerpt, p.hero_image, p.created_at, p.is_sticky, c.name AS category, u.username AS author_name ' . 
+        $sqlBase . $where . 
         ' ORDER BY p.is_sticky DESC, p.created_at DESC LIMIT ' . $limit . ' OFFSET ' . $offset;
 
 $stmt = $pdo->prepare($sql);
 $stmt->execute($params);
 $posts = $stmt->fetchAll();
 
+// Widgets Daten
 $cats = $pdo->query("SELECT c.id, c.name, COUNT(p.id) as count FROM categories c LEFT JOIN posts p ON p.category_id = c.id AND p.status = 'published' GROUP BY c.id ORDER BY c.name ASC")->fetchAll();
+$allTags = $pdo->query("SELECT t.name, t.slug, COUNT(pt.post_id) as count FROM tags t JOIN post_tags pt ON t.id = pt.tag_id GROUP BY t.id ORDER BY count DESC")->fetchAll();
 $latestComments = $pdo->query("SELECT c.content, c.author_name, c.created_at, p.id as post_id, p.title FROM comments c JOIN posts p ON c.post_id = p.id WHERE c.status = 'approved' ORDER BY c.created_at DESC LIMIT 5")->fetchAll();
 
 $languages = [
@@ -165,6 +179,12 @@ function buildUrl($newPage) {
     .page-link.active { background: var(--primary); color: white; border-color: var(--primary); pointer-events: none; }
     .page-link.disabled { opacity: 0.5; pointer-events: none; }
 
+    /* Tags Widget */
+    .tag-cloud { display: flex; flex-wrap: wrap; gap: 5px; }
+    .tag-item { background: #f0f2f5; color: #666; text-decoration: none; padding: 4px 10px; border-radius: 15px; font-size: 0.85rem; transition: 0.2s; }
+    .tag-item:hover { background: #e7f3ff; color: #1877f2; }
+    .tag-item .count { font-size: 0.75rem; opacity: 0.7; margin-left: 3px; }
+
     @media (min-width: 1200px) {
         .post-card.highlight { grid-column: span 2; flex-direction: row; }
         .post-card.highlight .post-card__media { width: 50%; height: auto; border-bottom: none; border-right: 1px solid var(--border); }
@@ -225,6 +245,13 @@ function buildUrl($newPage) {
   <main class="container">
     <div class="layout-wrapper">
         <section class="main-content">
+            <?php if (!empty($tagSlug)): ?>
+                <div style="margin-bottom: 20px; font-size: 1.2rem; color: var(--text-muted);">
+                    🏷️ <?= htmlspecialchars($t['sb_tags_title']) ?>: <strong><?= htmlspecialchars($tagSlug) ?></strong>
+                    <a href="/" style="font-size: 0.8rem; margin-left: 10px; text-decoration: none; color: var(--primary);">[x]</a>
+                </div>
+            <?php endif; ?>
+
             <div class="posts-grid">
                 <?php if (empty($posts)): ?>
                     <div style="grid-column: 1 / -1; text-align: center; padding: 50px; color: var(--text-muted); font-size: 1.1rem; background: var(--bg-card); border-radius: 12px; border: 1px solid var(--border);">
@@ -232,7 +259,7 @@ function buildUrl($newPage) {
                     </div>
                 <?php else: ?>
                     <?php $i = 0; foreach ($posts as $p): $i++; ?>
-                        <article class="post-card <?= (!empty($p['is_sticky'])) ? 'is-sticky' : '' ?> <?= ($i === 1 && $searchQuery === '' && $categoryId === 0 && $page === 1) ? 'highlight' : '' ?>">
+                        <article class="post-card <?= (!empty($p['is_sticky'])) ? 'is-sticky' : '' ?> <?= ($i === 1 && $searchQuery === '' && $categoryId === 0 && $page === 1 && $tagSlug === '') ? 'highlight' : '' ?>">
                         <a class="post-card__media" href="/article.php?id=<?= (int)$p['id'] ?>">
                             <?php if (!empty($p['hero_image'])): ?>
                             <img src="/uploads/<?= htmlspecialchars($p['hero_image']) ?>" alt="<?= htmlspecialchars($p['title']) ?>" loading="lazy">
@@ -298,6 +325,21 @@ function buildUrl($newPage) {
                     <?php endforeach; ?>
                 </ul>
             </div>
+
+            <?php if(!empty($allTags)): ?>
+            <div class="sidebar-widget">
+                <h3 class="sidebar-title">🏷️ <?= htmlspecialchars($t['sb_tags_title']) ?></h3>
+                <div class="tag-cloud">
+                    <?php foreach($allTags as $tag): ?>
+                        <a href="/index.php?tag=<?= htmlspecialchars($tag['slug']) ?>" class="tag-item">
+                            <?= htmlspecialchars($tag['name']) ?>
+                            <span class="count">(<?= $tag['count'] ?>)</span>
+                        </a>
+                    <?php endforeach; ?>
+                </div>
+            </div>
+            <?php endif; ?>
+
             <div class="sidebar-widget">
                 <h3 class="sidebar-title"><?= htmlspecialchars($t['sb_comm_title']) ?></h3>
                 <?php if(empty($latestComments)): ?>

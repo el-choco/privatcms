@@ -31,6 +31,10 @@ if (!$isAdmin && !$isOwner) {
 
 $categories = $pdo->query("SELECT * FROM categories ORDER BY name ASC")->fetchAll();
 
+$tagsStmt = $pdo->prepare("SELECT t.name FROM tags t JOIN post_tags pt ON t.id = pt.tag_id WHERE pt.post_id = ?");
+$tagsStmt->execute([$id]);
+$currentTags = implode(', ', $tagsStmt->fetchAll(PDO::FETCH_COLUMN));
+
 $uploadDir = __DIR__ . '/../public/uploads/';
 $allFiles = is_dir($uploadDir) ? array_diff(scandir($uploadDir), ['.', '..']) : [];
 usort($allFiles, function($a, $b) use ($uploadDir) {
@@ -289,6 +293,12 @@ usort($allFiles, function($a, $b) use ($uploadDir) {
                             </option>
                         <?php endforeach; ?>
                     </select>
+                </div>
+
+                <div style="margin-top: 15px;">
+                    <label style="font-weight: bold; font-size: 12px;"><?= htmlspecialchars($peLang['label_tags'] ?? 'Tags') ?></label>
+                    <small style="display:block; color:#666; margin-bottom:5px;"><?= htmlspecialchars($peLang['hint_tags'] ?? 'Comma separated') ?></small>
+                    <input type="text" id="post-tags" class="input" value="<?= htmlspecialchars($currentTags) ?>" placeholder="Linux, Docker...">
                 </div>
 
                 <div>
@@ -582,7 +592,8 @@ usort($allFiles, function($a, $b) use ($uploadDir) {
                 download_file: document.getElementById('download-file').value,
                 category_id: document.getElementById('post-category').value,
                 status: document.getElementById('post-status').value,
-                is_sticky: document.getElementById('post-sticky').checked ? 1 : 0
+                is_sticky: document.getElementById('post-sticky').checked ? 1 : 0,
+                tags: document.getElementById('post-tags').value
             };
 
             fetch('save-post-ajax.php', {

@@ -59,6 +59,33 @@ if ($data && isset($data['id'])) {
             $id
         ]);
 
+        // TAGS PROCESSING
+        $tagsInput = trim($data['tags'] ?? '');
+        $pdo->prepare("DELETE FROM post_tags WHERE post_id = ?")->execute([$id]);
+
+        if ($tagsInput !== '') {
+            $tagsArray = array_map('trim', explode(',', $tagsInput));
+            $tagsArray = array_unique(array_filter($tagsArray)); 
+
+            foreach ($tagsArray as $tagName) {
+                $slug = strtolower(trim(preg_replace('/[^A-Za-z0-9-]+/', '-', $tagName)));
+                if ($slug === '') continue;
+
+                $stmt = $pdo->prepare("SELECT id FROM tags WHERE slug = ?");
+                $stmt->execute([$slug]);
+                $tagId = $stmt->fetchColumn();
+
+                if (!$tagId) {
+                    $pdo->prepare("INSERT INTO tags (name, slug) VALUES (?, ?)")->execute([$tagName, $slug]);
+                    $tagId = $pdo->lastInsertId();
+                }
+
+                try {
+                    $pdo->prepare("INSERT INTO post_tags (post_id, tag_id) VALUES (?, ?)")->execute([$id, $tagId]);
+                } catch (Exception $e) { }
+            }
+        }
+
         try {
             $logStmt = $pdo->prepare("INSERT INTO activity_log (user_id, action, details, ip_address) VALUES (?, 'update', ?, ?)");
             $logStmt->execute([

@@ -19,10 +19,16 @@ $ini = parse_ini_file(__DIR__ . '/../config/config.ini', true, INI_SCANNER_TYPED
 $langFile = __DIR__ . '/../config/lang/' . $currentLang . '.ini';
 $iniLang = file_exists($langFile) ? parse_ini_file($langFile, true) : [];
 
+// FIX: Hier definieren wir $t, damit die Sidebar funktioniert
+$t = [
+    'date_format' => $iniLang['common']['date_fmt'] ?? 'd.m.Y'
+];
+
 $sb_cat_title = $iniLang['categories']['title'] ?? 'Categories';
 $sb_comm_title = $iniLang['comments']['title'] ?? 'Comments';
 $sb_no_comm = $iniLang['comments']['no_comments'] ?? '-';
 $t_by = $iniLang['frontend']['by'] ?? 'by';
+$t_tags = $iniLang['frontend']['tags_title'] ?? 'Tags';
 
 $i18n = I18n::fromConfig($ini, $_GET['lang'] ?? null);
 $db  = new Database($ini['database'] ?? []);
@@ -35,6 +41,11 @@ $stmt->execute([$id]);
 $post = $stmt->fetch();
 
 if (!$post) { http_response_code(404); echo "Not found"; exit; }
+
+// Tags laden
+$stmtTags = $pdo->prepare("SELECT t.name, t.slug FROM tags t JOIN post_tags pt ON t.id = pt.tag_id WHERE pt.post_id = ? ORDER BY t.name ASC");
+$stmtTags->execute([$id]);
+$postTags = $stmtTags->fetchAll();
 
 $cats = $pdo->query("SELECT c.id, c.name, COUNT(p.id) as count FROM categories c LEFT JOIN posts p ON p.category_id = c.id AND p.status = 'published' GROUP BY c.id ORDER BY c.name ASC")->fetchAll();
 $latestComments = $pdo->query("SELECT c.content, c.author_name, c.created_at, p.id as post_id, p.title FROM comments c JOIN posts p ON c.post_id = p.id WHERE c.status = 'approved' ORDER BY c.created_at DESC LIMIT 5")->fetchAll();
@@ -129,6 +140,11 @@ $languages = [
     .article-body img { max-width: 100%; border-radius: 8px; }
     .article-body pre { background: #23241f !important; color: #f8f8f2 !important; padding: 15px; border-radius: 8px; overflow-x: auto; font-family: 'Fira Code', Consolas, monospace; margin: 20px 0; }
     
+    .tag-container { margin-top: 30px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+    .tag-label { font-size: 0.9rem; font-weight: bold; color: var(--text-muted); margin-right: 5px; }
+    .tag-badge { background: #edf2f7; color: var(--text-muted); text-decoration: none; padding: 5px 12px; border-radius: 20px; font-size: 0.85rem; font-weight: 500; transition: all 0.2s; border: 1px solid transparent; }
+    .tag-badge:hover { background: #e7f3ff; color: var(--primary); border-color: #bee3f8; transform: translateY(-1px); }
+
     .sidebar { width: 320px; flex-shrink: 0; position: sticky; top: 20px; display: flex; flex-direction: column; gap: 20px; }
     .sidebar-widget { background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
     .sidebar-title { margin: 0 0 15px 0; font-size: 1.1rem; color: var(--primary); border-bottom: 2px solid #e7f3ff; padding-bottom: 8px; display: flex; align-items: center; gap: 8px; }
@@ -235,6 +251,15 @@ $languages = [
                 </div>
               <?php endif; ?>
 
+              <?php if (!empty($postTags)): ?>
+                <div class="tag-container">
+                    <span class="tag-label">🏷️ <?= htmlspecialchars($t_tags) ?>:</span>
+                    <?php foreach ($postTags as $tag): ?>
+                        <a href="/index.php?tag=<?= htmlspecialchars($tag['slug']) ?>" class="tag-badge"><?= htmlspecialchars($tag['name']) ?></a>
+                    <?php endforeach; ?>
+                </div>
+              <?php endif; ?>
+
               <section class="comments-section">
                 <h3><?= htmlspecialchars($i18n->t('common.comments_headline') ?? 'Comments') ?> (<?= count($comments) ?>)</h3>
                 
@@ -242,7 +267,6 @@ $languages = [
                 <?php if($error): ?><div style="background:#f8d7da; color:#842029; padding:15px; border-radius:6px; margin-bottom:20px;"><?= htmlspecialchars($error) ?></div><?php endif; ?>
 
                 <?php foreach ($comments as $c): 
-                    // PRÜFUNG: Ist der Kommentar vom Artikel-Autor oder Admin?
                     $isReply = ($c['author_name'] === ($post['author_name'] ?? '')) || $c['author_name'] === 'Admin';
                 ?>
                     <div style="margin-bottom: 15px;">
@@ -303,7 +327,7 @@ $languages = [
                         <li class="comm-item">
                             <div class="comm-meta">
                                 <span class="comm-author"><?= htmlspecialchars($lc['author_name']) ?></span>
-                                <span>• <?= date('d.m.Y', strtotime($lc['created_at'])) ?></span>
+                                <span>• <?= date($t['date_format'], strtotime($lc['created_at'])) ?></span>
                             </div>
                             <a href="/article.php?id=<?= $lc['post_id'] ?>#comments" class="comm-link">
                                 “<?= htmlspecialchars($lc['title']) ?>”
