@@ -99,6 +99,12 @@ CREATE TABLE IF NOT EXISTS post_tags (
     FOREIGN KEY (tag_id) REFERENCES tags(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+-- Table: Daily Stats (New for General Visitor Stats)
+CREATE TABLE IF NOT EXISTS daily_stats (
+    date DATE PRIMARY KEY,
+    views INT DEFAULT 0
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 -- 2. Seed Data & Schema Updates
 START TRANSACTION;
 
@@ -150,7 +156,7 @@ SELECT id, 'Gast', 'gast@example.com', 'Könntest du ein Beispiel-Compose posten
 FROM posts WHERE slug='docker-compose-quickstart';
 
 -- --------------------------------------------------------
--- MULTI-USER SYSTEM UPDATES
+-- MULTI-USER SYSTEM UPDATES & STATS
 -- --------------------------------------------------------
 
 -- Add author_id to posts if not exists
@@ -191,5 +197,22 @@ SET @preparedStatement = (SELECT IF(
 PREPARE addConstraint FROM @preparedStatement;
 EXECUTE addConstraint;
 DEALLOCATE PREPARE addConstraint;
+
+-- Add views column to posts if not exists
+SET @columnname2 = "views";
+SET @preparedStatement2 = (SELECT IF(
+  (
+    SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
+    WHERE
+      (table_name = @tablename)
+      AND (table_schema = @dbname)
+      AND (column_name = @columnname2)
+  ) > 0,
+  "SELECT 1",
+  "ALTER TABLE posts ADD COLUMN views INT DEFAULT 0;"
+));
+PREPARE alterIfNotExists2 FROM @preparedStatement2;
+EXECUTE alterIfNotExists2;
+DEALLOCATE PREPARE alterIfNotExists2;
 
 COMMIT;

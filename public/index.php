@@ -28,7 +28,9 @@ $t = [
     'search_btn'     => $iniLang['frontend']['search_button'] ?? 'Go',
     'page_prev'      => $iniLang['frontend']['pagination_prev'] ?? '«',
     'page_next'      => $iniLang['frontend']['pagination_next'] ?? '»',
-    'sb_tags_title'  => $iniLang['frontend']['tags_title'] ?? 'Tags'
+    'sb_tags_title'  => $iniLang['frontend']['tags_title'] ?? 'Tags',
+    'footer_total'   => $iniLang['frontend']['footer_stats_total'] ?? 'Total Visits',
+    'footer_today'   => $iniLang['frontend']['footer_stats_today'] ?? 'Today'
 ];
 
 require_once __DIR__ . '/../src/App/Database.php';
@@ -38,6 +40,21 @@ $ini = parse_ini_file(__DIR__ . '/../config/config.ini', true, INI_SCANNER_TYPED
 $db  = new Database($ini['database']);
 $pdo = $db->pdo();
 $pdo->exec("SET NAMES utf8mb4");
+
+// VISITOR COUNTER (General)
+$today = date('Y-m-d');
+if (!isset($_SESSION['viewed_index_' . $today])) {
+    try {
+        $pdo->prepare("INSERT INTO daily_stats (date, views) VALUES (?, 1) ON DUPLICATE KEY UPDATE views = views + 1")->execute([$today]);
+        $_SESSION['viewed_index_' . $today] = true;
+    } catch (Exception $e) {}
+}
+
+// Fetch Global Stats for Footer
+try {
+    $totalViews = (int)$pdo->query("SELECT SUM(views) FROM daily_stats")->fetchColumn();
+    $todayViews = (int)$pdo->query("SELECT views FROM daily_stats WHERE date = CURDATE()")->fetchColumn();
+} catch (Exception $e) { $totalViews = 0; $todayViews = 0; }
 
 $settings = [];
 try {
@@ -60,7 +77,6 @@ $sqlBase = ' FROM posts p
 $where = ' WHERE p.status = "published" ';
 $params = [];
 
-// JOIN für Tags
 if ($tagSlug !== '') {
     $sqlBase .= ' JOIN post_tags pt ON p.id = pt.post_id JOIN tags t ON pt.tag_id = t.id ';
     $where .= ' AND t.slug = ? ';
@@ -80,13 +96,11 @@ if ($searchQuery !== '') {
     $params[] = $like;
 }
 
-// Zählen für Paginierung
 $countStmt = $pdo->prepare('SELECT COUNT(DISTINCT p.id) ' . $sqlBase . $where);
 $countStmt->execute($params);
 $totalPosts = (int)$countStmt->fetchColumn();
 $totalPages = (int)ceil($totalPosts / $limit);
 
-// Beiträge holen
 $sql = 'SELECT DISTINCT p.id, p.title, p.excerpt, p.hero_image, p.created_at, p.is_sticky, c.name AS category, u.username AS author_name ' . 
         $sqlBase . $where . 
         ' ORDER BY p.is_sticky DESC, p.created_at DESC LIMIT ' . $limit . ' OFFSET ' . $offset;
@@ -95,7 +109,6 @@ $stmt = $pdo->prepare($sql);
 $stmt->execute($params);
 $posts = $stmt->fetchAll();
 
-// Widgets Daten
 $cats = $pdo->query("SELECT c.id, c.name, COUNT(p.id) as count FROM categories c LEFT JOIN posts p ON p.category_id = c.id AND p.status = 'published' GROUP BY c.id ORDER BY c.name ASC")->fetchAll();
 $allTags = $pdo->query("SELECT t.name, t.slug, COUNT(pt.post_id) as count FROM tags t JOIN post_tags pt ON t.id = pt.tag_id GROUP BY t.id ORDER BY count DESC")->fetchAll();
 $latestComments = $pdo->query("SELECT c.content, c.author_name, c.created_at, p.id as post_id, p.title FROM comments c JOIN posts p ON c.post_id = p.id WHERE c.status = 'approved' ORDER BY c.created_at DESC LIMIT 5")->fetchAll();
@@ -366,6 +379,17 @@ function buildUrl($newPage) {
         </aside>
     </div>
   </main>
+
+  <footer style="text-align: center; padding: 40px 20px; color: var(--text-muted); font-size: 0.9rem; margin-top: 50px; border-top: 1px solid var(--border);">
+    <div style="margin-bottom: 10px;">
+        &copy; <?= date('Y') ?> <?= htmlspecialchars($settings['blog_title'] ?? 'PiperBlog') ?>
+    </div>
+    <div>
+        📊 <?= htmlspecialchars($t['footer_total']) ?>: <strong><?= number_format($totalViews) ?></strong>
+        &bull; 
+        📅 <?= htmlspecialchars($t['footer_today']) ?>: <strong><?= number_format($todayViews) ?></strong>
+    </div>
+  </footer>
 
   <button id="backToTop" title="Nach oben">↑</button>
 

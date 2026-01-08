@@ -38,6 +38,7 @@ if ($data && isset($data['id'])) {
 
         $sql = "UPDATE posts SET 
                 title = ?, 
+                excerpt = ?, 
                 content = ?, 
                 hero_image = ?, 
                 download_file = ?, 
@@ -50,6 +51,7 @@ if ($data && isset($data['id'])) {
         $stmt = $pdo->prepare($sql);
         $stmt->execute([
             $data['title'],
+            $data['excerpt'] ?? '',
             $data['content'],
             $data['hero_image'] ?: null,
             $data['download_file'] ?: null,
@@ -59,7 +61,6 @@ if ($data && isset($data['id'])) {
             $id
         ]);
 
-        // TAGS PROCESSING
         $tagsInput = trim($data['tags'] ?? '');
         $pdo->prepare("DELETE FROM post_tags WHERE post_id = ?")->execute([$id]);
 

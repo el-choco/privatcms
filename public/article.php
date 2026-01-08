@@ -19,9 +19,11 @@ $ini = parse_ini_file(__DIR__ . '/../config/config.ini', true, INI_SCANNER_TYPED
 $langFile = __DIR__ . '/../config/lang/' . $currentLang . '.ini';
 $iniLang = file_exists($langFile) ? parse_ini_file($langFile, true) : [];
 
-// FIX: Hier definieren wir $t, damit die Sidebar funktioniert
 $t = [
-    'date_format' => $iniLang['common']['date_fmt'] ?? 'd.m.Y'
+    'date_format' => $iniLang['common']['date_fmt'] ?? 'd.m.Y',
+    'footer_total'=> $iniLang['frontend']['footer_stats_total'] ?? 'Total Visits',
+    'footer_today'=> $iniLang['frontend']['footer_stats_today'] ?? 'Today',
+    'stat_views'  => $iniLang['frontend']['stat_views'] ?? 'Views'
 ];
 
 $sb_cat_title = $iniLang['categories']['title'] ?? 'Categories';
@@ -35,6 +37,20 @@ $db  = new Database($ini['database'] ?? []);
 $pdo = $db->pdo();
 
 $id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
+
+// VIEWS COUNTER (Specific Post)
+if ($id > 0 && !isset($_SESSION['viewed_post_' . $id])) {
+    try {
+        $pdo->prepare("UPDATE posts SET views = views + 1 WHERE id = ?")->execute([$id]);
+        $_SESSION['viewed_post_' . $id] = true;
+    } catch (Exception $e) {}
+}
+
+// Fetch Global Stats for Footer
+try {
+    $totalViews = (int)$pdo->query("SELECT SUM(views) FROM daily_stats")->fetchColumn();
+    $todayViews = (int)$pdo->query("SELECT views FROM daily_stats WHERE date = CURDATE()")->fetchColumn();
+} catch (Exception $e) { $totalViews = 0; $todayViews = 0; }
 
 $stmt = $pdo->prepare('SELECT p.*, c.name as category_name, u.username as author_name FROM posts p LEFT JOIN categories c ON p.category_id = c.id LEFT JOIN users u ON p.author_id = u.id WHERE p.id=? AND p.status="published"');
 $stmt->execute([$id]);
@@ -224,6 +240,7 @@ $languages = [
                 <div class="article-meta">
                     <span>📅 <?= date('d.m.Y', strtotime($post['created_at'])) ?></span>
                     <span>• <?= htmlspecialchars($t_by) ?> <strong><?= htmlspecialchars($post['author_name'] ?? 'Admin') ?></strong></span>
+                    <span>👁️ <?= number_format((int)($post['views'] ?? 0)) ?> <?= htmlspecialchars($t['stat_views']) ?></span>
                     <?php if ($post['category_name']): ?>
                         <span class="cat-badge"><?= htmlspecialchars($post['category_name']) ?></span>
                     <?php endif; ?>
@@ -344,6 +361,17 @@ $languages = [
 
     </div>
   </main>
+
+  <footer style="text-align: center; padding: 40px 20px; color: var(--text-muted); font-size: 0.9rem; margin-top: 50px; border-top: 1px solid var(--border);">
+    <div style="margin-bottom: 10px;">
+        &copy; <?= date('Y') ?> <?= htmlspecialchars($settings['blog_title'] ?? 'PiperBlog') ?>
+    </div>
+    <div>
+        📊 <?= htmlspecialchars($t['footer_total']) ?>: <strong><?= number_format($totalViews) ?></strong>
+        &bull; 
+        📅 <?= htmlspecialchars($t['footer_today']) ?>: <strong><?= number_format($todayViews) ?></strong>
+    </div>
+  </footer>
 
   <button id="backToTop" title="Nach oben">↑</button>
 
