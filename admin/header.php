@@ -87,8 +87,10 @@ $isAdmin = $userRole === 'admin';
             </a>
             <a href="activity-log.php" class="<?= $current_page=='activity-log.php'?'active':'' ?>">
                 <?= htmlspecialchars($t['activity_log']['title'] ?? 'Logbuch') ?>
+            </a>            
+            <a href="messages.php" class="<?= $current_page=='messages.php'?'active':'' ?>">
+                <?= htmlspecialchars($t['messages']['menu_link'] ?? 'Inbox') ?>
             </a>
-            
             <a href="change-language.php" class="<?= $current_page=='change-language.php'?'active':'' ?>">
                 <?= htmlspecialchars($t['language_settings']['title'] ?? 'Sprache & Region') ?>
             </a>

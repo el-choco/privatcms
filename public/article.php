@@ -20,17 +20,22 @@ $langFile = __DIR__ . '/../config/lang/' . $currentLang . '.ini';
 $iniLang = file_exists($langFile) ? parse_ini_file($langFile, true) : [];
 
 $t = [
-    'date_format' => $iniLang['common']['date_fmt'] ?? 'd.m.Y',
-    'footer_total'=> $iniLang['frontend']['footer_stats_total'] ?? 'Total Visits',
-    'footer_today'=> $iniLang['frontend']['footer_stats_today'] ?? 'Today',
-    'stat_views'  => $iniLang['frontend']['stat_views'] ?? 'Views'
+    'date_format'   => $iniLang['common']['date_fmt'] ?? 'd.m.Y',
+    'footer_total'  => $iniLang['frontend']['footer_stats_total'] ?? 'Total Visits',
+    'footer_today'  => $iniLang['frontend']['footer_stats_today'] ?? 'Today',
+    'stat_views'    => $iniLang['frontend']['stat_views'] ?? 'Views',
+    'sb_cat_title'  => $iniLang['categories']['title'] ?? 'Categories',
+    'sb_comm_title' => $iniLang['comments']['title'] ?? 'Comments',
+    'sb_no_comm'    => $iniLang['comments']['no_comments'] ?? '-',
+    'sb_tags_title' => $iniLang['frontend']['tags_title'] ?? 'Tags',
+    'nav_contact'   => $iniLang['frontend']['nav_contact'] ?? 'Contact'
 ];
 
-$sb_cat_title = $iniLang['categories']['title'] ?? 'Categories';
-$sb_comm_title = $iniLang['comments']['title'] ?? 'Comments';
-$sb_no_comm = $iniLang['comments']['no_comments'] ?? '-';
+$sb_cat_title = $t['sb_cat_title'];
+$sb_comm_title = $t['sb_comm_title'];
+$sb_no_comm = $t['sb_no_comm'];
 $t_by = $iniLang['frontend']['by'] ?? 'by';
-$t_tags = $iniLang['frontend']['tags_title'] ?? 'Tags';
+$t_tags = $t['sb_tags_title'];
 
 $i18n = I18n::fromConfig($ini, $_GET['lang'] ?? null);
 $db  = new Database($ini['database'] ?? []);
@@ -38,7 +43,6 @@ $pdo = $db->pdo();
 
 $id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
 
-// VIEWS COUNTER (Specific Post)
 if ($id > 0 && !isset($_SESSION['viewed_post_' . $id])) {
     try {
         $pdo->prepare("UPDATE posts SET views = views + 1 WHERE id = ?")->execute([$id]);
@@ -46,7 +50,6 @@ if ($id > 0 && !isset($_SESSION['viewed_post_' . $id])) {
     } catch (Exception $e) {}
 }
 
-// Fetch Global Stats for Footer
 try {
     $totalViews = (int)$pdo->query("SELECT SUM(views) FROM daily_stats")->fetchColumn();
     $todayViews = (int)$pdo->query("SELECT views FROM daily_stats WHERE date = CURDATE()")->fetchColumn();
@@ -58,7 +61,6 @@ $post = $stmt->fetch();
 
 if (!$post) { http_response_code(404); echo "Not found"; exit; }
 
-// Tags laden
 $stmtTags = $pdo->prepare("SELECT t.name, t.slug FROM tags t JOIN post_tags pt ON t.id = pt.tag_id WHERE pt.post_id = ? ORDER BY t.name ASC");
 $stmtTags->execute([$id]);
 $postTags = $stmtTags->fetchAll();
@@ -132,7 +134,8 @@ $languages = [
     .nav-container { max-width: 1800px; margin: 0 auto; width: 95%; display: flex; justify-content: space-between; align-items: center; }
     .brand { font-size: 24px; font-weight: bold; text-decoration: none; color: white; }
     .btn-home { background-color: rgba(255,255,255,0.2); color: white; text-decoration: none; padding: 8px 16px; border-radius: 6px; font-weight: 600; transition: background 0.2s; }
-    .btn-home:hover { background-color: rgba(255,255,255,0.3); }
+    .btn-contact { background-color: rgba(255,255,255,0.2); color: white; text-decoration: none; padding: 8px 16px; border-radius: 6px; font-weight: 600; font-size: 0.9rem; margin-right: 5px; }
+    .btn-contact:hover { background-color: rgba(255,255,255,0.3); }
     .theme-toggle { background: none; border: 1px solid rgba(255,255,255,0.3); color: white; padding: 6px 12px; border-radius: 20px; cursor: pointer; font-size: 1.2rem; }
 
     .lang-dropdown { position: relative; }
@@ -206,7 +209,7 @@ $languages = [
     <div class="nav-container">
       <a href="/" class="brand"><?= htmlspecialchars($settings['blog_title'] ?? 'PiperBlog') ?></a>
       <div style="display:flex; gap:10px; align-items:center;">
-        
+        <a href="/contact.php" class="btn-contact"><?= htmlspecialchars($t['nav_contact']) ?></a>
         <div class="lang-dropdown" id="langDropdown">
             <div class="lang-trigger" onclick="toggleLang()">
                 <img src="<?= $languages[$currentLang]['flag'] ?>" alt="<?= $currentLang ?>">

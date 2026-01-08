@@ -105,6 +105,17 @@ CREATE TABLE IF NOT EXISTS daily_stats (
     views INT DEFAULT 0
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+-- Table: Messages (Contact Form)
+CREATE TABLE IF NOT EXISTS messages (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(128) NOT NULL,
+    email VARCHAR(128) NOT NULL,
+    subject VARCHAR(255),
+    content TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    is_read TINYINT(1) DEFAULT 0
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 -- 2. Seed Data & Schema Updates
 START TRANSACTION;
 

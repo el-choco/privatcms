@@ -30,7 +30,8 @@ $t = [
     'page_next'      => $iniLang['frontend']['pagination_next'] ?? '»',
     'sb_tags_title'  => $iniLang['frontend']['tags_title'] ?? 'Tags',
     'footer_total'   => $iniLang['frontend']['footer_stats_total'] ?? 'Total Visits',
-    'footer_today'   => $iniLang['frontend']['footer_stats_today'] ?? 'Today'
+    'footer_today'   => $iniLang['frontend']['footer_stats_today'] ?? 'Today',
+    'nav_contact'    => $iniLang['frontend']['nav_contact'] ?? 'Contact'
 ];
 
 require_once __DIR__ . '/../src/App/Database.php';
@@ -41,7 +42,6 @@ $db  = new Database($ini['database']);
 $pdo = $db->pdo();
 $pdo->exec("SET NAMES utf8mb4");
 
-// VISITOR COUNTER (General)
 $today = date('Y-m-d');
 if (!isset($_SESSION['viewed_index_' . $today])) {
     try {
@@ -50,7 +50,6 @@ if (!isset($_SESSION['viewed_index_' . $today])) {
     } catch (Exception $e) {}
 }
 
-// Fetch Global Stats for Footer
 try {
     $totalViews = (int)$pdo->query("SELECT SUM(views) FROM daily_stats")->fetchColumn();
     $todayViews = (int)$pdo->query("SELECT views FROM daily_stats WHERE date = CURDATE()")->fetchColumn();
@@ -152,6 +151,8 @@ function buildUrl($newPage) {
     .site-title { font-size: 24px; font-weight: bold; color: var(--header-text); text-decoration: none; }
     .header-actions { display: flex; align-items: center; gap: 15px; }
     .btn-admin { background-color: rgba(255,255,255,0.2); color: var(--header-text); text-decoration: none; padding: 8px 16px; border-radius: 6px; font-weight: 600; font-size: 0.9rem; }
+    .btn-contact { background-color: rgba(255,255,255,0.2); color: var(--header-text); text-decoration: none; padding: 8px 16px; border-radius: 6px; font-weight: 600; font-size: 0.9rem; margin-right: 5px; }
+    .btn-contact:hover { background-color: rgba(255,255,255,0.3); }
     .theme-toggle { background: none; border: 1px solid rgba(255,255,255,0.3); color: var(--header-text); padding: 6px 12px; border-radius: 20px; cursor: pointer; font-size: 1.2rem; }
     
     .lang-dropdown { position: relative; }
@@ -168,8 +169,10 @@ function buildUrl($newPage) {
     .main-content { flex: 1; min-width: 0; }
     .sidebar { width: 320px; flex-shrink: 0; position: sticky; top: 20px; display: flex; flex-direction: column; gap: 20px; }
 
-    .posts-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(350px, 1fr)); gap: 25px; margin-bottom: 50px; }
-    .post-card { background: var(--bg-card); border-radius: 12px; overflow: hidden; display: flex; flex-direction: column; box-shadow: 0 2px 10px rgba(0,0,0,0.06); transition: transform 0.2s; border-top: 4px solid var(--border); }
+    /* FLEXBOX Layout für die Posts */
+    .posts-grid { display: flex; flex-wrap: wrap; gap: 25px; margin-bottom: 50px; }
+    .post-card { flex: 1 1 350px; background: var(--bg-card); border-radius: 12px; overflow: hidden; display: flex; flex-direction: column; box-shadow: 0 2px 10px rgba(0,0,0,0.06); transition: transform 0.2s; border-top: 4px solid var(--border); }
+    
     .post-card.is-sticky { border-top: 4px solid #e53e3e !important; }
     .post-card:hover { transform: translateY(-5px); box-shadow: 0 10px 20px rgba(0,0,0,0.1); border-top-color: var(--primary); }
     .post-card__media { width: 100%; height: 200px; background: var(--bg-img); display: flex; align-items: center; justify-content: center; overflow: hidden; border-bottom: 1px solid var(--border); }
@@ -192,14 +195,13 @@ function buildUrl($newPage) {
     .page-link.active { background: var(--primary); color: white; border-color: var(--primary); pointer-events: none; }
     .page-link.disabled { opacity: 0.5; pointer-events: none; }
 
-    /* Tags Widget */
     .tag-cloud { display: flex; flex-wrap: wrap; gap: 5px; }
     .tag-item { background: #f0f2f5; color: #666; text-decoration: none; padding: 4px 10px; border-radius: 15px; font-size: 0.85rem; transition: 0.2s; }
     .tag-item:hover { background: #e7f3ff; color: #1877f2; }
     .tag-item .count { font-size: 0.75rem; opacity: 0.7; margin-left: 3px; }
 
     @media (min-width: 1200px) {
-        .post-card.highlight { grid-column: span 2; flex-direction: row; }
+        .post-card.highlight { flex: 2 1 700px; flex-direction: row; }
         .post-card.highlight .post-card__media { width: 50%; height: auto; border-bottom: none; border-right: 1px solid var(--border); }
         .post-card.highlight .post-card__content { width: 50%; padding: 40px; justify-content: center; }
         .post-card.highlight .post-card__title { font-size: 2rem; }
@@ -235,6 +237,7 @@ function buildUrl($newPage) {
     <div class="header-container">
       <a href="/" class="site-title"><?= htmlspecialchars($settings['blog_title'] ?? $ini['app']['title'] ?? $t['title_fallback']) ?></a>
       <div class="header-actions">
+        <a href="/contact.php" class="btn-contact"><?= htmlspecialchars($t['nav_contact']) ?></a>
         <div class="lang-dropdown" id="langDropdown">
             <div class="lang-trigger" onclick="toggleLang()">
                 <img src="<?= $languages[$currentLang]['flag'] ?>" alt="<?= $currentLang ?>">
