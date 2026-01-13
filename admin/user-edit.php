@@ -81,6 +81,9 @@ require_once 'header.php';
                         <?= htmlspecialchars($uLang['label_role'] ?? 'Role') ?>
                     </label>
                     <select name="role" style="width:100%; padding:12px; border:2px solid #e2e8f0; border-radius:8px; background:white;">
+                        <option value="member" <?= ($user['role']??'') === 'member' ? 'selected' : '' ?>>
+                            <?= htmlspecialchars($rLang['member'] ?? 'Member') ?>
+                        </option>
                         <option value="viewer" <?= ($user['role']??'') === 'viewer' ? 'selected' : '' ?>>
                             <?= htmlspecialchars($rLang['viewer'] ?? 'Viewer') ?>
                         </option>

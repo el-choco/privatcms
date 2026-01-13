@@ -70,6 +70,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $message = '<div class="alert alert-danger">' . ($sLang['msg_download_error'] ?? 'Download Error: ') . $e->getMessage() . '</div>'; 
         }
     }
+
+    if (isset($_POST['restore_backup'])) {
+        try {
+            if (!empty($_FILES['backup_file']['tmp_name'])) {
+                if (method_exists($backupService, 'restoreBackup')) {
+                    $backupService->restoreBackup($_FILES['backup_file']['tmp_name']);
+                    $message = '<div class="alert alert-success">' . ($sLang['msg_restore_success'] ?? 'Restore successful') . '</div>';
+                } else {
+                    throw new Exception("Restore method not implemented in BackupService.");
+                }
+            }
+        } catch (Exception $e) {
+            $message = '<div class="alert alert-danger">' . ($sLang['msg_error'] ?? 'Error: ') . $e->getMessage() . '</div>';
+        }
+    }
 }
 
 $settings = [];
@@ -121,7 +136,7 @@ require_once 'header.php';
             <button type="button" class="tab-btn <?= $activeTab === 'info' ? 'active' : '' ?>" onclick="showTab('info', this)"><?= htmlspecialchars($sLang['tab_info'] ?? 'Info') ?></button>
         </nav>
 
-        <form method="POST">
+        <form method="POST" enctype="multipart/form-data">
             <input type="hidden" name="active_tab" id="active_tab_input" value="<?= htmlspecialchars($activeTab) ?>">
 
             <div id="general" class="tab-content <?= $activeTab === 'general' ? 'active' : '' ?>">
@@ -212,6 +227,18 @@ require_once 'header.php';
                         <div class="action-card"><h4>📋 JSON</h4><button type="submit" name="backup_action" value="json" class="btn btn-sm" style="width:100%"><?= htmlspecialchars($sLang['btn_download'] ?? 'Download') ?></button></div>
                         <div class="action-card"><h4>📊 CSV</h4><button type="submit" name="backup_action" value="csv" class="btn btn-sm" style="width:100%"><?= htmlspecialchars($sLang['btn_download'] ?? 'Download') ?></button></div>
                         <div class="action-card highlight"><h4><?= htmlspecialchars($sLang['label_full_backup'] ?? 'ZIP') ?></h4><button type="submit" name="backup_action" value="full" class="btn btn-primary btn-sm" style="width:100%"><?= htmlspecialchars($sLang['btn_create_backup'] ?? 'Create') ?></button></div>
+                    </div>
+                </div>
+                <div class="settings-card" style="margin-top: 20px;">
+                    <h3><?= htmlspecialchars($sLang['sec_restore'] ?? 'Restore') ?></h3>
+                    <div style="margin-bottom: 15px; color: #e53e3e; font-size: 0.9rem;">
+                        <?= htmlspecialchars($sLang['warn_restore'] ?? 'Warning: This will overwrite your database!') ?>
+                    </div>
+                    <div style="display: flex; gap: 10px;">
+                        <input type="file" name="backup_file" class="input" accept=".zip">
+                        <button type="submit" name="restore_backup" class="btn btn-danger">
+                            <?= htmlspecialchars($sLang['btn_restore'] ?? 'Restore') ?>
+                        </button>
                     </div>
                 </div>
             </div>

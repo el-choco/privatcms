@@ -7,13 +7,15 @@ if (empty($_SESSION['admin'])) {
     exit;
 }
 
-$uploadDir = __DIR__ . '/../public/uploads/';
+require_once __DIR__ . '/../src/App/Database.php';
+$ini = parse_ini_file(__DIR__ . '/../config/config.ini', true, INI_SCANNER_TYPED) ?: [];
+$pdo = (new App\Database($ini['database'] ?? []))->pdo();
 
+$uploadDir = __DIR__ . '/../public/uploads/';
 if (!is_dir($uploadDir)) {
     @mkdir($uploadDir, 0775, true);
 }
 
-// Sprachdateien laden
 $currentLang = $_SESSION['lang'] ?? 'de';
 $langFile = __DIR__ . '/../config/lang/' . $currentLang . '.ini';
 $t_temp = file_exists($langFile) ? parse_ini_file($langFile, true) : [];
@@ -22,16 +24,23 @@ $fLang = $t_temp['files'] ?? [];
 $message = '';
 $files = is_dir($uploadDir) ? array_diff(scandir($uploadDir), array('.', '..')) : [];
 
+usort($files, function($a, $b) use ($uploadDir) {
+    return filemtime($uploadDir . $b) - filemtime($uploadDir . $a);
+});
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['files'])) {
     if (!is_writable($uploadDir)) {
-        $message = '<span style="color:red;">' . ($fLang['error_write'] ?? 'Error') . '</span>';
+        $message = '<div class="alert error">' . ($fLang['error_write'] ?? 'Upload directory not writable') . '</div>';
     } else {
         $uploadedCount = 0;
         $totalFiles = count($_FILES['files']['name']);
 
         for ($i = 0; $i < $totalFiles; $i++) {
             if ($_FILES['files']['error'][$i] === UPLOAD_ERR_OK) {
-                $name = time() . '_' . $i . '_' . basename($_FILES['files']['name'][$i]);
+                $ext = pathinfo($_FILES['files']['name'][$i], PATHINFO_EXTENSION);
+                $name = time() . '_' . $i . '_' . pathinfo($_FILES['files']['name'][$i], PATHINFO_FILENAME);
+                $name = preg_replace('/[^a-z0-9_-]/i', '_', $name) . '.' . $ext;
+                
                 if (move_uploaded_file($_FILES['files']['tmp_name'][$i], $uploadDir . $name)) {
                     $uploadedCount++;
                 }
@@ -39,11 +48,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['files'])) {
         }
         
         if ($uploadedCount > 0) {
-            $msgTemplate = $fLang['success_upload'] ?? '%d uploaded';
+            $msgTemplate = $fLang['success_upload'] ?? '%d files uploaded successfully';
             header("Location: files.php?msg=" . urlencode(sprintf($msgTemplate, $uploadedCount)));
             exit;
         } else {
-            $message = '<span style="color:red;">' . ($fLang['error_upload'] ?? 'Error') . '</span>';
+            $message = '<div class="alert error">' . ($fLang['error_upload'] ?? 'Upload failed') . '</div>';
         }
     }
 }
@@ -58,186 +67,193 @@ if (isset($_GET['delete'])) {
     exit;
 }
 
-$displayMsg = $_GET['msg'] ?? $message;
+$displayMsg = $_GET['msg'] ?? null;
+if ($displayMsg) {
+    $message = '<div class="alert success">' . htmlspecialchars((string)$displayMsg) . '</div>';
+}
 
 require_once 'header.php';
 ?>
 
 <style>
-    #linkModal {
-        display: none; position: fixed; z-index: 9999; 
-        left: 0; top: 0; width: 100%; height: 100%; 
-        background-color: rgba(0,0,0,0.6); align-items: center; justify-content: center;
-        backdrop-filter: blur(2px);
+    .file-manager-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; }
+    
+    /* Upload Zone (Die "Bild Pfeile" Zone) */
+    .upload-area { 
+        background: #f8fafc; border: 2px dashed #cbd5e0; border-radius: 12px; padding: 30px; 
+        text-align: center; transition: all 0.3s; cursor: pointer; margin-bottom: 30px; display: flex; flex-direction: column-reverse;; }
+    .upload-area:hover, .upload-area.dragover { border-color: #3182ce; background: #ebf8ff; }
+    .upload-icon { font-size: 3rem; color: #a0aec0; margin-bottom: 10px; }
+    
+    .files-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 20px; }
+    .file-card { 
+        background: white; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; 
+        transition: transform 0.2s, box-shadow 0.2s; position: relative;
+        display: flex; flex-direction: column;
     }
-    .modal-content {
-        background: white; padding: 25px; border-radius: 15px; 
-        width: 90%; max-width: 500px; text-align: center;
-        box-shadow: 0 20px 40px rgba(0,0,0,0.3); animation: modalScale 0.2s ease-out;
+    .file-card:hover { transform: translateY(-3px); box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); border-color: #bee3f8; }
+    
+    .file-preview { 
+        height: 140px; background: #f1f5f9; display: flex; align-items: center; justify-content: center; 
+        overflow: hidden; position: relative;
     }
-    @keyframes modalScale { from { transform: scale(0.8); opacity: 0; } to { transform: scale(1); opacity: 1; } }
-    .link-input {
-        width: 95%; padding: 12px; margin: 20px 0;
-        border: 2px solid #e2e8f0; border-radius: 8px;
-        background: #f8fafc; font-family: monospace; font-size: 13px; text-align: center;
-    }
-    .modal-btns { display: flex; gap: 12px; }
-    .modal-btn-copy { background: #3182ce; color: white; flex: 2; border: none; padding: 10px; border-radius: 8px; font-weight: bold; cursor: pointer; }
-    .modal-btn-close { background: #edf2f7; color: #4a5568; flex: 1; border: none; padding: 10px; border-radius: 8px; cursor: pointer; }
+    .file-preview img { width: 100%; height: 100%; object-fit: cover; }
+    .file-icon { font-size: 3.5rem; color: #718096; }
+    
+    .file-info { padding: 12px; flex-grow: 1; display: flex; flex-direction: column; }
+    .file-name { font-size: 0.85rem; font-weight: 600; color: #2d3748; margin-bottom: 5px; word-break: break-all; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+    .file-meta { font-size: 0.75rem; color: #718096; margin-bottom: 10px; }
+    
+    .file-actions { display: flex; gap: 5px; margin-top: auto; }
+    .btn-file { flex: 1; font-size: 0.8rem; padding: 6px; }
+    
+    /* Modal Styles */
+    #linkModal { display: none; position: fixed; z-index: 10000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); backdrop-filter: blur(2px); justify-content: center; align-items: center; }
+    .modal-box { background: white; padding: 25px; border-radius: 12px; width: 90%; max-width: 450px; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1); text-align: center; }
+    .modal-title { font-size: 1.2rem; font-weight: 700; margin-bottom: 15px; color: #2d3748; }
+    .link-input { width: 100%; padding: 10px; border: 2px solid #e2e8f0; border-radius: 6px; background: #f7fafc; font-family: monospace; text-align: center; margin-bottom: 20px; font-size: 0.9rem; box-sizing: border-box; }
+    
+    .alert { padding: 15px; border-radius: 8px; margin-bottom: 20px; font-weight: 500; }
+    .alert.success { background: #c6f6d5; color: #22543d; border: 1px solid #9ae6b4; }
+    .alert.error { background: #fed7d7; color: #822727; border: 1px solid #feb2b2; }
 </style>
 
-<div class="content-area">
-    <div style="display: flex; justify-content: center; padding-top: 20px;">
-        <div style="width: 100%; max-width: 1000px;">
+<div class="admin-content" style=" margin-left: 50px; margin-right: 50px;">
+    <div class="file-manager-header">
+        <h1 style="margin:0;"><?= htmlspecialchars($fLang['manage_title'] ?? 'File Manager') ?></h1>
+        <span style="background:#e2e8f0; padding:5px 10px; border-radius:20px; font-size:0.8rem; font-weight:bold; color:#4a5568;">
+            <?= count($files) ?> Items
+        </span>
+    </div>
 
-            <header style="margin-bottom: 30px;">
-                <h1 style="margin:0; font-size: 1.5rem; color: #1a202c;"><?= htmlspecialchars($t['files']['manage_title']) ?></h1>
-                <?php if ($displayMsg): ?>
-                    <div style="font-size:14px; margin-top: 10px; color: #2f855a; font-weight: bold;"><?= htmlspecialchars((string)$displayMsg) ?></div>
-                <?php endif; ?>
-            </header>
+    <?= $message ?>
 
-            <div class="card" style="padding: 25px; margin-bottom: 30px; background: #f0f9ff; border: 2px dashed #3182ce; border-radius: 12px;">
-                <form method="post" enctype="multipart/form-data" style="display: flex; gap: 20px; align-items: center; justify-content: center; flex-wrap: wrap;">
-                    
-                    <div style="flex: 1; min-width: 250px; position: relative;">
-                        <input type="file" name="files[]" id="fileInput" multiple required 
-                               style="opacity: 0; position: absolute; z-index: -1; width: 0.1px; height: 0.1px;"
-                               onchange="updateFileLabel(this)">
-                        
-                        <label for="fileInput" style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
-                            <span style="background: #edf2f7; color: #2d3748; border: 1px solid #cbd5e0; padding: 8px 12px; border-radius: 4px; font-size: 13px; font-weight: 600; white-space: nowrap;">
-                                <?= htmlspecialchars($t['files']['input_label'] ?? 'Choose') ?>
-                            </span>
-                            <span id="fileNameDisplay" style="color: #718096; font-size: 14px; font-style: italic;">
-                                <?= htmlspecialchars($t['files']['input_empty'] ?? 'No file selected') ?>
-                            </span>
-                        </label>
-                    </div>
-                    <button type="submit" class="btn btn-primary" style="padding: 10px 25px;">
-                        <?= htmlspecialchars($t['files']['upload_btn']) ?>
-                    </button>
-                </form>
-                <p style="text-align: center; font-size: 12px; color: #718096; margin-top: 10px;">
-                    <?= $t['files']['upload_hint'] ?>
-                </p>
+    <form method="post" enctype="multipart/form-data" id="uploadForm">
+        <label class="upload-area" id="dropZone">
+            <input type="file" name="files[]" id="fileInput" multiple required style="display:none" onchange="this.form.submit()">
+            <div class="upload-icon"><i class="fa-solid fa-cloud-arrow-up"></i></div>
+            <div style="font-weight:600; font-size:1.1rem; color:#2d3748; margin-bottom:5px;">
+                <?= htmlspecialchars($fLang['upload_btn'] ?? 'Click or Drag files here to upload') ?>
             </div>
+            <div style="color:#718096; font-size:0.9rem;">
+                JPG, PNG, GIF, PDF supported
+            </div>
+        </label>
+    </form>
 
-            <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 20px;">
-                <?php if (empty($files)): ?>
-                    <div style="grid-column: 1/-1; text-align: center; padding: 40px; color: #a0aec0; background: #fff; border-radius: 8px; border: 1px solid #e2e8f0;">
-                        <?= htmlspecialchars($t['files']['no_files']) ?>
+    <div class="files-grid">
+        <?php if (empty($files)): ?>
+            <div style="grid-column:1/-1; text-align:center; padding:50px; color:#a0aec0; border:2px dashed #e2e8f0; border-radius:12px;">
+                <i class="fa-regular fa-folder-open" style="font-size:3rem; margin-bottom:15px; display:block;"></i>
+                <?= htmlspecialchars($fLang['no_files'] ?? 'No files uploaded yet') ?>
+            </div>
+        <?php else: ?>
+            <?php foreach ($files as $f): 
+                $filePath = $uploadDir . $f;
+                $isImage = preg_match('/\.(jpg|jpeg|png|gif|webp)$/i', $f);
+                $size = is_file($filePath) ? round(filesize($filePath) / 1024, 1) . ' KB' : '';
+                $date = is_file($filePath) ? date('d.m.y', filemtime($filePath)) : '';
+            ?>
+                <?php if (is_dir($filePath)) continue; ?>
+                
+                <div class="file-card">
+                    <div class="file-preview">
+                        <?php if ($isImage): ?>
+                            <img src="/uploads/<?= htmlspecialchars($f) ?>" loading="lazy">
+                        <?php else: ?>
+                            <div class="file-icon">
+                                <?php if(preg_match('/\.pdf$/i', $f)): ?><i class="fa-solid fa-file-pdf" style="color:#e53e3e;"></i>
+                                <?php elseif(preg_match('/\.zip$/i', $f)): ?><i class="fa-solid fa-file-zipper" style="color:#d69e2e;"></i>
+                                <?php else: ?><i class="fa-solid fa-file" style="color:#718096;"></i><?php endif; ?>
+                            </div>
+                        <?php endif; ?>
                     </div>
-                <?php endif; ?>
-
-                <?php foreach ($files as $f): ?>
-                    <?php if (is_dir($uploadDir . $f)) continue; ?>
-                    <div class="card" style="padding: 15px; text-align: center; border-top: 4px solid #cbd5e0; transition: transform 0.2s;">
-                        <div style="height: 120px; background: #f1f5f9; border-radius: 8px; margin-bottom: 15px; display: flex; align-items: center; justify-content: center; overflow: hidden;">
-                            <?php if (preg_match('/\.(jpg|jpeg|png|gif|webp)$/i', (string)$f)): ?>
-                                <img src="/uploads/<?= htmlspecialchars((string)$f) ?>" style="width: 100%; height: 100%; object-fit: cover;">
-                            <?php else: ?>
-                                <span style="font-size: 3rem;">📄</span>
-                            <?php endif; ?>
-                        </div>
-                        <div style="font-size: 11px; font-weight: 600; margin-bottom: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="<?= htmlspecialchars((string)$f) ?>">
-                            <?= htmlspecialchars((string)$f) ?>
-                        </div>
-                        <div style="display: flex; gap: 8px;">
-                            <button class="btn btn-sm" style="flex: 1; background: #edf2f7; font-size: 11px;" 
-                                    onclick="showLinkModal('/uploads/<?= htmlspecialchars((string)$f) ?>')">
-                                <?= htmlspecialchars($t['files']['copy_link']) ?>
+                    <div class="file-info">
+                        <div class="file-name" title="<?= htmlspecialchars($f) ?>"><?= htmlspecialchars($f) ?></div>
+                        <div class="file-meta"><?= $size ?> • <?= $date ?></div>
+                        
+                        <div class="file-actions">
+                            <button class="btn btn-primary btn-file" onclick="showLinkModal('/uploads/<?= htmlspecialchars($f) ?>')">
+                                <i class="fa-solid fa-link"></i> Link
                             </button>
-                            <a href="?delete=<?= urlencode((string)$f) ?>" class="btn btn-sm btn-danger" 
-                               onclick="return confirm('<?= htmlspecialchars($t['files']['delete_confirm']) ?>')" style="color: #e53e3e;">
-                                🗑️
+                            <a href="?delete=<?= urlencode($f) ?>" class="btn btn-danger btn-file" onclick="return confirm('<?= htmlspecialchars($fLang['delete_confirm'] ?? 'Delete this file?') ?>')">
+                                <i class="fa-solid fa-trash"></i>
                             </a>
                         </div>
                     </div>
-                <?php endforeach; ?>
-            </div>
-        </div>
+                </div>
+            <?php endforeach; ?>
+        <?php endif; ?>
     </div>
 </div>
 
 <div id="linkModal">
-    <div class="modal-content">
-        <h3 style="margin-top: 0;"><?= htmlspecialchars($t['files']['modal_title']) ?></h3>
+    <div class="modal-box">
+        <div class="modal-title"><?= htmlspecialchars($fLang['modal_title'] ?? 'File Link') ?></div>
         <input type="text" id="modalLinkInput" class="link-input" readonly>
-        <div class="modal-btns">
-            <button class="btn modal-btn-copy" onclick="copyModalLink()"><?= htmlspecialchars($t['files']['modal_copy']) ?></button>
-            <button class="btn modal-btn-close" onclick="closeModal()"><?= htmlspecialchars($t['files']['modal_cancel']) ?></button>
+        <div style="display:flex; gap:10px;">
+            <button class="btn btn-primary" style="flex:1;" onclick="copyModalLink()"><?= htmlspecialchars($fLang['modal_copy'] ?? 'Copy') ?></button>
+            <button class="btn" style="flex:1; background:#edf2f7; color:#4a5568;" onclick="closeModal()"><?= htmlspecialchars($fLang['modal_cancel'] ?? 'Close') ?></button>
         </div>
     </div>
 </div>
 
 <script>
-// Texte für JS aus PHP holen
-const txtCopied = "<?= htmlspecialchars($t['files']['modal_copied']) ?>";
-const txtError = "<?= htmlspecialchars($t['files']['error_copy']) ?>";
-const txtSelected = "<?= htmlspecialchars($t['files']['input_selected'] ?? '%d selected') ?>";
-const txtEmpty = "<?= htmlspecialchars($t['files']['input_empty'] ?? 'No file') ?>";
+    const dropZone = document.getElementById('dropZone');
+    const uploadForm = document.getElementById('uploadForm');
+    const fileInput = document.getElementById('fileInput');
 
-function updateFileLabel(input) {
-    const label = document.getElementById('fileNameDisplay');
-    const count = input.files.length;
-    if (count === 0) {
-        label.innerText = txtEmpty;
-        label.style.color = '#718096';
-        label.style.fontWeight = 'normal';
-    } else {
-        label.innerText = txtSelected.replace('%d', count);
-        label.style.color = '#2f855a';
-        label.style.fontWeight = 'bold';
+    // Drag & Drop Logic
+    dropZone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        dropZone.classList.add('dragover');
+    });
+    dropZone.addEventListener('dragleave', () => {
+        dropZone.classList.remove('dragover');
+    });
+    dropZone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        dropZone.classList.remove('dragover');
+        fileInput.files = e.dataTransfer.files;
+        uploadForm.submit();
+    });
+
+    // Modal Logic
+    function showLinkModal(path) {
+        const input = document.getElementById('modalLinkInput');
+        input.value = window.location.origin + path;
+        document.getElementById('linkModal').style.display = 'flex';
+        input.select();
     }
-}
-
-function showLinkModal(path) {
-    const input = document.getElementById('modalLinkInput');
-    input.value = window.location.origin + path;
-    document.getElementById('linkModal').style.display = 'flex';
-    input.select();
-}
-
-function closeModal() { document.getElementById('linkModal').style.display = 'none'; }
-
-function copyModalLink() {
-    const input = document.getElementById('modalLinkInput');
-    const copyBtn = document.querySelector('.modal-btn-copy');
-    const originalText = copyBtn.innerText;
-    input.select();
-    input.setSelectionRange(0, 99999);
-
-    if (navigator.clipboard && window.isSecureContext) {
-        navigator.clipboard.writeText(input.value).then(() => {
-            handleCopySuccess(copyBtn, originalText);
-        }).catch(() => fallbackCopy(input, copyBtn, originalText));
-    } else {
-        fallbackCopy(input, copyBtn, originalText);
-    }
-}
-
-function fallbackCopy(input, btn, originalText) {
-    try {
-        if (document.execCommand('copy')) {
-            handleCopySuccess(btn, originalText);
+    function closeModal() { document.getElementById('linkModal').style.display = 'none'; }
+    
+    function copyModalLink() {
+        const input = document.getElementById('modalLinkInput');
+        input.select();
+        
+        if (navigator.clipboard && window.isSecureContext) {
+            navigator.clipboard.writeText(input.value).then(handleCopySuccess);
+        } else {
+            // Fallback for non-secure context
+            try { document.execCommand('copy'); handleCopySuccess(); } catch (e) {}
         }
-    } catch (err) { alert(txtError); }
-}
+    }
 
-function handleCopySuccess(btn, originalText) {
-    btn.innerText = txtCopied;
-    btn.style.background = '#2f855a';
-    setTimeout(() => {
-        btn.innerText = originalText;
-        btn.style.background = '#3182ce';
-        closeModal();
-    }, 1200);
-}
-
-window.onclick = function(event) {
-    if (event.target == document.getElementById('linkModal')) closeModal();
-}
+    function handleCopySuccess() {
+        const btn = document.querySelector('#linkModal .btn-primary');
+        const originalText = btn.innerText;
+        btn.innerText = "<?= htmlspecialchars($fLang['modal_copied'] ?? 'Copied!') ?>";
+        btn.style.background = "#38a169";
+        setTimeout(() => {
+            btn.innerText = originalText;
+            btn.style.background = "#3182ce";
+            closeModal();
+        }, 1000);
+    }
+    
+    window.onclick = function(e) {
+        if(e.target == document.getElementById('linkModal')) closeModal();
+    }
 </script>
 
 <?php include 'footer.php'; ?>

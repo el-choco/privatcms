@@ -6,12 +6,11 @@ CREATE TABLE IF NOT EXISTS users (
   username VARCHAR(64) UNIQUE NOT NULL,
   password_hash VARCHAR(255) NOT NULL,
   email VARCHAR(255),
-  role ENUM('admin','editor','viewer') DEFAULT 'admin',
+  role ENUM('admin','editor','viewer','member') DEFAULT 'member',
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 -- Default Admin (User: admin, Pass: admin123)
--- Hash: $2y$10$JmFQxjH6U6xF3JH2RrPoGeD7m9Emo9c9GkQm6b7NVQyU1S1fOeSgW
 INSERT INTO users (username, password_hash, email, role)
 VALUES ('admin', '$2y$10$JmFQxjH6U6xF3JH2RrPoGeD7m9Emo9c9GkQm6b7NVQyU1S1fOeSgW', 'admin@example.com', 'admin')
 ON DUPLICATE KEY UPDATE password_hash=VALUES(password_hash), email=VALUES(email), role=VALUES(role);
@@ -30,10 +29,9 @@ CREATE TABLE IF NOT EXISTS settings (
 );
 
 -- Table: Posts
--- Note: author_id is added via procedure below to ensure compatibility if table exists
 CREATE TABLE IF NOT EXISTS posts (
   id INT AUTO_INCREMENT PRIMARY KEY,
-  user_id INT NOT NULL, -- Original user_id (required)
+  user_id INT NOT NULL,
   category_id INT,
   title VARCHAR(255) NOT NULL,
   slug VARCHAR(255) UNIQUE,
@@ -53,12 +51,14 @@ CREATE TABLE IF NOT EXISTS posts (
 CREATE TABLE IF NOT EXISTS comments (
   id INT AUTO_INCREMENT PRIMARY KEY,
   post_id INT NOT NULL,
+  parent_id INT DEFAULT NULL, -- UPDATE: Added parent_id
   author_name VARCHAR(128),
   author_email VARCHAR(128),
   content TEXT NOT NULL,
   status ENUM('pending','approved','spam','deleted') DEFAULT 'pending',
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (post_id) REFERENCES posts(id)
+  FOREIGN KEY (post_id) REFERENCES posts(id),
+  FOREIGN KEY (parent_id) REFERENCES comments(id) ON DELETE CASCADE -- UPDATE: Added Self-Reference FK
 );
 
 -- Table: Files
@@ -72,7 +72,7 @@ CREATE TABLE IF NOT EXISTS files (
   FOREIGN KEY (user_id) REFERENCES users(id)
 );
 
--- Table: Activity Log (New)
+-- Table: Activity Log
 CREATE TABLE IF NOT EXISTS activity_log (
     id INT AUTO_INCREMENT PRIMARY KEY,
     user_id INT,
@@ -99,7 +99,7 @@ CREATE TABLE IF NOT EXISTS post_tags (
     FOREIGN KEY (tag_id) REFERENCES tags(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- Table: Daily Stats (New for General Visitor Stats)
+-- Table: Daily Stats
 CREATE TABLE IF NOT EXISTS daily_stats (
     date DATE PRIMARY KEY,
     views INT DEFAULT 0
@@ -114,6 +114,28 @@ CREATE TABLE IF NOT EXISTS messages (
     content TEXT NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     is_read TINYINT(1) DEFAULT 0
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Table: Pages
+CREATE TABLE IF NOT EXISTS pages (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    title VARCHAR(255) NOT NULL,
+    slug VARCHAR(255) UNIQUE NOT NULL,
+    content LONGTEXT,
+    status ENUM('draft','published') DEFAULT 'draft',
+    show_in_header TINYINT(1) DEFAULT 0,
+    show_in_footer TINYINT(1) DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Table: Menu Items (New)
+CREATE TABLE IF NOT EXISTS menu_items (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    label VARCHAR(100) NOT NULL,
+    link VARCHAR(255) NOT NULL,
+    type ENUM('page', 'custom') DEFAULT 'custom',
+    position INT DEFAULT 0
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- 2. Seed Data & Schema Updates
@@ -225,5 +247,120 @@ SET @preparedStatement2 = (SELECT IF(
 PREPARE alterIfNotExists2 FROM @preparedStatement2;
 EXECUTE alterIfNotExists2;
 DEALLOCATE PREPARE alterIfNotExists2;
+
+-- --------------------------------------------------------
+-- PAGES SYSTEM UPDATES
+-- --------------------------------------------------------
+
+-- Add show_in_header to pages if not exists
+SET @tablename = "pages";
+SET @columnname = "show_in_header";
+SET @preparedStatement = (SELECT IF(
+  (SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE (table_name = @tablename) AND (table_schema = @dbname) AND (column_name = @columnname)) > 0,
+  "SELECT 1",
+  "ALTER TABLE pages ADD COLUMN show_in_header TINYINT(1) DEFAULT 0;"
+));
+PREPARE alterIfNotExists FROM @preparedStatement;
+EXECUTE alterIfNotExists;
+DEALLOCATE PREPARE alterIfNotExists;
+
+-- Add show_in_footer to pages if not exists
+SET @columnname = "show_in_footer";
+SET @preparedStatement = (SELECT IF(
+  (SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE (table_name = @tablename) AND (table_schema = @dbname) AND (column_name = @columnname)) > 0,
+  "SELECT 1",
+  "ALTER TABLE pages ADD COLUMN show_in_footer TINYINT(1) DEFAULT 0;"
+));
+PREPARE alterIfNotExists FROM @preparedStatement;
+EXECUTE alterIfNotExists;
+DEALLOCATE PREPARE alterIfNotExists;
+
+-- --------------------------------------------------------
+-- MENU SYSTEM UPDATES
+-- --------------------------------------------------------
+
+SET @tablename = "menu_items";
+SET @preparedStatement = (SELECT IF(
+  (SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLES WHERE (table_name = @tablename) AND (table_schema = @dbname)) > 0,
+  "SELECT 1",
+  "CREATE TABLE menu_items (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    label VARCHAR(100) NOT NULL,
+    link VARCHAR(255) NOT NULL,
+    type ENUM('page', 'custom') DEFAULT 'custom',
+    position INT DEFAULT 0
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;"
+));
+PREPARE createIfNotExists FROM @preparedStatement;
+EXECUTE createIfNotExists;
+DEALLOCATE PREPARE createIfNotExists;
+
+-- --------------------------------------------------------
+-- COMMENTS SYSTEM UPDATES
+-- --------------------------------------------------------
+
+-- Add parent_id to comments if not exists
+SET @tablename = "comments";
+SET @columnname = "parent_id";
+SET @preparedStatement = (SELECT IF(
+  (SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE (table_name = @tablename) AND (table_schema = @dbname) AND (column_name = @columnname)) > 0,
+  "SELECT 1",
+  "ALTER TABLE comments ADD COLUMN parent_id INT DEFAULT NULL AFTER post_id;"
+));
+PREPARE alterIfNotExists FROM @preparedStatement;
+EXECUTE alterIfNotExists;
+DEALLOCATE PREPARE alterIfNotExists;
+
+-- Add Foreign Key for parent_id if not exists
+SET @constraintname = "fk_comments_parent";
+SET @preparedStatement = (SELECT IF(
+  (SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLE_CONSTRAINTS WHERE (constraint_name = @constraintname) AND (table_name = @tablename) AND (constraint_schema = @dbname)) > 0,
+  "SELECT 1",
+  "ALTER TABLE comments ADD CONSTRAINT fk_comments_parent FOREIGN KEY (parent_id) REFERENCES comments(id) ON DELETE CASCADE;"
+));
+PREPARE addConstraint FROM @preparedStatement;
+EXECUTE addConstraint;
+DEALLOCATE PREPARE addConstraint;
+
+-- --------------------------------------------------------
+-- FORUM SYSTEM (NEW)
+-- --------------------------------------------------------
+
+CREATE TABLE IF NOT EXISTS forum_boards (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    title VARCHAR(255) NOT NULL,
+    description TEXT,
+    slug VARCHAR(255) NOT NULL,
+    sort_order INT DEFAULT 0,
+    parent_id INT DEFAULT NULL,
+    is_category TINYINT(1) DEFAULT 0,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS forum_threads (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    board_id INT NOT NULL,
+    user_id INT NOT NULL,
+    title VARCHAR(255) NOT NULL,
+    slug VARCHAR(255) NOT NULL,
+    is_locked TINYINT(1) DEFAULT 0,
+    is_sticky TINYINT(1) DEFAULT 0,
+    views INT DEFAULT 0,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (board_id) REFERENCES forum_boards(id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS forum_posts (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    thread_id INT NOT NULL,
+    user_id INT NOT NULL,
+    content TEXT NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT NULL,
+    FOREIGN KEY (thread_id) REFERENCES forum_threads(id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 COMMIT;

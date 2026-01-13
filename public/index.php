@@ -100,7 +100,7 @@ $countStmt->execute($params);
 $totalPosts = (int)$countStmt->fetchColumn();
 $totalPages = (int)ceil($totalPosts / $limit);
 
-$sql = 'SELECT DISTINCT p.id, p.title, p.excerpt, p.hero_image, p.created_at, p.is_sticky, c.name AS category, u.username AS author_name ' . 
+$sql = 'SELECT DISTINCT p.id, p.title, p.slug, p.excerpt, p.hero_image, p.created_at, p.is_sticky, c.name AS category, u.username AS author_name ' . 
         $sqlBase . $where . 
         ' ORDER BY p.is_sticky DESC, p.created_at DESC LIMIT ' . $limit . ' OFFSET ' . $offset;
 
@@ -110,7 +110,8 @@ $posts = $stmt->fetchAll();
 
 $cats = $pdo->query("SELECT c.id, c.name, COUNT(p.id) as count FROM categories c LEFT JOIN posts p ON p.category_id = c.id AND p.status = 'published' GROUP BY c.id ORDER BY c.name ASC")->fetchAll();
 $allTags = $pdo->query("SELECT t.name, t.slug, COUNT(pt.post_id) as count FROM tags t JOIN post_tags pt ON t.id = pt.tag_id GROUP BY t.id ORDER BY count DESC")->fetchAll();
-$latestComments = $pdo->query("SELECT c.content, c.author_name, c.created_at, p.id as post_id, p.title FROM comments c JOIN posts p ON c.post_id = p.id WHERE c.status = 'approved' ORDER BY c.created_at DESC LIMIT 5")->fetchAll();
+
+$latestComments = $pdo->query("SELECT c.content, c.author_name, c.created_at, p.id as post_id, p.slug as post_slug, p.title FROM comments c JOIN posts p ON c.post_id = p.id WHERE c.status = 'approved' ORDER BY c.created_at DESC LIMIT 5")->fetchAll();
 
 $languages = [
     'de' => ['label' => 'Deutsch',  'flag' => 'https://flagcdn.com/w40/de.png'],
@@ -131,132 +132,13 @@ function buildUrl($newPage) {
   <meta charset="utf-8">
   <title><?= htmlspecialchars($settings['blog_title'] ?? $ini['app']['title'] ?? $t['title_fallback']) ?></title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" type="image/x-icon" href="/favicon.ico">
   <link href="/assets/styles/main.css" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/monokai-sublime.min.css">
-  <style>
-    :root {
-        --bg-body: #f0f2f5; --bg-card: #ffffff; --text-main: #1c1e21; --text-muted: #65676b;
-        --border: #ccd0d5; --primary: #1877f2; --header-bg: #1877f2; --header-text: #ffffff;
-        --bg-img: #ffffff; 
-    }
-    [data-theme="dark"] {
-        --bg-body: #18191a; --bg-card: #242526; --text-main: #e4e6eb; --text-muted: #b0b3b8;
-        --border: #3e4042; --primary: #2d88ff; --header-bg: #242526; --header-text: #e4e6eb;
-        --bg-img: #ffffff; 
-    }
-    body { background-color: var(--bg-body); color: var(--text-main); margin: 0; font-family: -apple-system, sans-serif; transition: background 0.3s, color 0.3s; scroll-behavior: smooth; }
-    
-    .site-header { background-color: var(--header-bg); color: var(--header-text); padding: 12px 0; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 15px; max-width: 1500px; margin-right: auto; margin-left: auto; border-radius: 6px; }
-    .header-container { max-width: 1600px; margin: 0 auto; width: 95%; display: flex; justify-content: space-between; align-items: center; }
-    .site-title { font-size: 24px; font-weight: bold; color: var(--header-text); text-decoration: none; }
-    .header-actions { display: flex; align-items: center; gap: 15px; }
-    .btn-admin { background-color: rgba(255,255,255,0.2); color: var(--header-text); text-decoration: none; padding: 8px 16px; border-radius: 6px; font-weight: 600; font-size: 0.9rem; }
-    .btn-contact { background-color: rgba(255,255,255,0.2); color: var(--header-text); text-decoration: none; padding: 8px 16px; border-radius: 6px; font-weight: 600; font-size: 0.9rem; margin-right: 5px; }
-    .btn-contact:hover { background-color: rgba(255,255,255,0.3); }
-    .theme-toggle { background: none; border: 1px solid rgba(255,255,255,0.3); color: var(--header-text); padding: 6px 12px; border-radius: 20px; cursor: pointer; font-size: 1.2rem; }
-    
-    .lang-dropdown { position: relative; }
-    .lang-trigger { display: flex; align-items: center; gap: 6px; cursor: pointer; background: rgba(255,255,255,0.15); padding: 6px 10px; border-radius: 6px; color: var(--header-text); font-weight: 600; font-size: 0.9rem; }
-    .lang-trigger img { width: 20px; border-radius: 3px; }
-    .lang-menu { display: none; position: absolute; right: 0; top: 120%; background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 5px 15px rgba(0,0,0,0.2); z-index: 1000; min-width: 150px; overflow: hidden; }
-    .lang-menu.show { display: block; }
-    .lang-option { display: flex; align-items: center; gap: 10px; padding: 10px 15px; color: var(--text-main); text-decoration: none; font-size: 0.95rem; }
-    .lang-option:hover { background: var(--bg-body); color: var(--primary); }
-    .lang-option img { width: 18px; border-radius: 2px; }
-
-    .container { max-width: 1535px; margin: 0 auto; width: 95%; }
-    .layout-wrapper { display: flex; gap: 30px; align-items: flex-start; }
-    .main-content { flex: 1; min-width: 0; }
-    .sidebar { width: 320px; flex-shrink: 0; position: sticky; top: 20px; display: flex; flex-direction: column; gap: 20px; }
-
-    /* FLEXBOX Layout für die Posts */
-    .posts-grid { display: flex; flex-wrap: wrap; gap: 25px; margin-bottom: 50px; }
-    .post-card { flex: 1 1 350px; background: var(--bg-card); border-radius: 12px; overflow: hidden; display: flex; flex-direction: column; box-shadow: 0 2px 10px rgba(0,0,0,0.06); transition: transform 0.2s; border-top: 4px solid var(--border); }
-    
-    .post-card.is-sticky { border-top: 4px solid #e53e3e !important; }
-    .post-card:hover { transform: translateY(-5px); box-shadow: 0 10px 20px rgba(0,0,0,0.1); border-top-color: var(--primary); }
-    .post-card__media { width: 100%; height: 200px; background: var(--bg-img); display: flex; align-items: center; justify-content: center; overflow: hidden; border-bottom: 1px solid var(--border); }
-    .post-card__media img { width: 100%; height: 100%; object-fit: contain; padding: 15px; box-sizing: border-box; }
-    .post-card__content { padding: 20px; flex-grow: 1; display: flex; flex-direction: column; }
-    .post-card__title { margin: 0 0 10px 0; font-size: 1.3rem; line-height: 1.3; }
-    .post-card__title a { text-decoration: none; color: var(--text-main); }
-    .post-card__meta { margin-bottom: 12px; display: flex; align-items: center; gap: 10px; font-size: 0.85rem; flex-wrap: wrap; }
-    .badge { background: #e7f3ff; color: #1877f2; padding: 3px 10px; border-radius: 5px; font-weight: bold; }
-    .badge-sticky { background: #e53e3e; color: white; padding: 3px 10px; border-radius: 5px; font-weight: bold; }
-    .date { color: var(--text-muted); }
-    .author { color: var(--text-muted); display: flex; align-items: center; gap: 4px; }
-    .post-card__excerpt { color: var(--text-main); opacity: 0.8; line-height: 1.5; margin-bottom: 20px; font-size: 0.95rem; }
-    .post-card__cta { margin-top: auto; background: var(--bg-body); color: var(--primary); text-align: center; padding: 10px; border-radius: 6px; text-decoration: none; font-weight: bold; transition: background 0.2s; }
-    .post-card__cta:hover { background: var(--primary); color: white; }
-
-    .pagination { display: flex; justify-content: center; gap: 10px; margin-top: 40px; margin-bottom: 40px; }
-    .page-link { padding: 10px 15px; background: var(--bg-card); border: 1px solid var(--border); border-radius: 6px; color: var(--text-main); text-decoration: none; font-weight: bold; transition: 0.2s; }
-    .page-link:hover { background: var(--primary); color: white; border-color: var(--primary); }
-    .page-link.active { background: var(--primary); color: white; border-color: var(--primary); pointer-events: none; }
-    .page-link.disabled { opacity: 0.5; pointer-events: none; }
-
-    .tag-cloud { display: flex; flex-wrap: wrap; gap: 5px; }
-    .tag-item { background: #f0f2f5; color: #666; text-decoration: none; padding: 4px 10px; border-radius: 15px; font-size: 0.85rem; transition: 0.2s; }
-    .tag-item:hover { background: #e7f3ff; color: #1877f2; }
-    .tag-item .count { font-size: 0.75rem; opacity: 0.7; margin-left: 3px; }
-
-    @media (min-width: 1200px) {
-        .post-card.highlight { flex: 2 1 700px; flex-direction: row; }
-        .post-card.highlight .post-card__media { width: 50%; height: auto; border-bottom: none; border-right: 1px solid var(--border); }
-        .post-card.highlight .post-card__content { width: 50%; padding: 40px; justify-content: center; }
-        .post-card.highlight .post-card__title { font-size: 2rem; }
-    }
-
-    .sidebar-widget { background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
-    .sidebar-title { margin: 0 0 15px 0; font-size: 1.1rem; color: var(--primary); border-bottom: 2px solid #e7f3ff; padding-bottom: 8px; display: flex; align-items: center; gap: 8px; }
-    .cat-list { list-style: none; padding: 0; margin: 0; }
-    .cat-item { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--border); }
-    .cat-item:last-child { border-bottom: none; }
-    .cat-item a { text-decoration: none; color: var(--text-main); font-weight: 500; }
-    .cat-item a:hover { color: var(--primary); }
-    .cat-count { background: #e7f3ff; color: var(--primary); font-size: 0.8rem; font-weight: bold; padding: 2px 8px; border-radius: 10px; }
-    .comm-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 15px; }
-    .comm-item { display: flex; flex-direction: column; gap: 4px; font-size: 0.9rem; }
-    .comm-meta { font-size: 0.8rem; color: var(--text-muted); display: flex; align-items: center; gap: 5px; }
-    .comm-author { font-weight: bold; color: var(--text-main); }
-    .comm-link { text-decoration: none; color: var(--primary); font-weight: 500; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .comm-text { font-style: italic; color: var(--text-muted); font-size: 0.85rem; border-left: 2px solid var(--border); padding-left: 8px; margin-top: 2px; }
-
-    #backToTop { position: fixed; bottom: 30px; right: 30px; z-index: 999; background: var(--primary); color: white; border: none; width: 50px; height: 50px; border-radius: 50%; font-size: 24px; cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.2); opacity: 0; pointer-events: none; transition: opacity 0.3s, transform 0.3s; display: flex; align-items: center; justify-content: center; }
-    #backToTop.show { opacity: 1; pointer-events: all; }
-    #backToTop:hover { transform: translateY(-3px); }
-
-    @media (max-width: 1000px) {
-        .sidebar { display: none !important; }
-        .layout-wrapper { display: block; }
-    }
-  </style>
 </head>
 <body>
-  <header class="site-header">
-    <div class="header-container">
-      <a href="/" class="site-title"><?= htmlspecialchars($settings['blog_title'] ?? $ini['app']['title'] ?? $t['title_fallback']) ?></a>
-      <div class="header-actions">
-        <a href="/contact.php" class="btn-contact"><?= htmlspecialchars($t['nav_contact']) ?></a>
-        <div class="lang-dropdown" id="langDropdown">
-            <div class="lang-trigger" onclick="toggleLang()">
-                <img src="<?= $languages[$currentLang]['flag'] ?>" alt="<?= $currentLang ?>">
-                <span><?= strtoupper($currentLang) ?></span>
-                <span style="font-size: 10px;">▼</span>
-            </div>
-            <div class="lang-menu" id="langMenu">
-                <?php foreach($languages as $code => $data): ?>
-                    <a href="?lang=<?= $code ?>" class="lang-option"><img src="<?= $data['flag'] ?>"> <?= $data['label'] ?></a>
-                <?php endforeach; ?>
-            </div>
-        </div>
-        <?php if (($settings['dark_mode_enabled'] ?? '0') === '1'): ?>
-            <button id="theme-toggle" class="theme-toggle" aria-label="<?= htmlspecialchars($t['toggle_theme']) ?>">🌓</button>
-        <?php endif; ?>
-        <a href="/admin/" class="btn-admin"><?= htmlspecialchars($t['admin']) ?></a>
-      </div>
-    </div>
-  </header>
+  
+  <?php include 'header.php'; ?>
 
   <main class="container">
     <div class="layout-wrapper">
@@ -276,7 +158,7 @@ function buildUrl($newPage) {
                 <?php else: ?>
                     <?php $i = 0; foreach ($posts as $p): $i++; ?>
                         <article class="post-card <?= (!empty($p['is_sticky'])) ? 'is-sticky' : '' ?> <?= ($i === 1 && $searchQuery === '' && $categoryId === 0 && $page === 1 && $tagSlug === '') ? 'highlight' : '' ?>">
-                        <a class="post-card__media" href="/article.php?id=<?= (int)$p['id'] ?>">
+                        <a class="post-card__media" href="/artikel/<?= htmlspecialchars($p['slug'] ?: $p['id']) ?>">
                             <?php if (!empty($p['hero_image'])): ?>
                             <img src="/uploads/<?= htmlspecialchars($p['hero_image']) ?>" alt="<?= htmlspecialchars($p['title']) ?>" loading="lazy">
                             <?php else: ?>
@@ -293,9 +175,9 @@ function buildUrl($newPage) {
                                 <strong><?= htmlspecialchars($p['author_name'] ?? 'Admin') ?></strong>
                             </span>
                             </div>
-                            <h2 class="post-card__title"><a href="/article.php?id=<?= (int)$p['id'] ?>"><?= htmlspecialchars($p['title']) ?></a></h2>
+                            <h2 class="post-card__title"><a href="/artikel/<?= htmlspecialchars($p['slug'] ?: $p['id']) ?>"><?= htmlspecialchars($p['title']) ?></a></h2>
                             <p class="post-card__excerpt"><?= htmlspecialchars($p['excerpt'] ?? '') ?></p>
-                            <a class="post-card__cta" href="/article.php?id=<?= (int)$p['id'] ?>"><?= htmlspecialchars($t['read_more']) ?></a>
+                            <a class="post-card__cta" href="/artikel/<?= htmlspecialchars($p['slug'] ?: $p['id']) ?>"><?= htmlspecialchars($t['read_more']) ?></a>
                         </div>
                         </article>
                     <?php endforeach; ?>
@@ -341,6 +223,30 @@ function buildUrl($newPage) {
                     <?php endforeach; ?>
                 </ul>
             </div>
+            
+            <div class="sidebar-widget">
+                <h3 class="sidebar-title"><?= htmlspecialchars($t['sb_comm_title']) ?></h3>
+                <?php if(empty($latestComments)): ?>
+                    <div style="color:var(--text-muted);font-size:0.9rem;"><?= htmlspecialchars($t['sb_no_comm']) ?></div>
+                <?php else: ?>
+                    <ul class="comm-list">
+                        <?php foreach($latestComments as $lc): ?>
+                        <li class="comm-item">
+                            <div class="comm-meta">
+                                <span class="comm-author"><?= htmlspecialchars($lc['author_name']) ?></span>
+                                <span>• <?= date($t['date_format'], strtotime($lc['created_at'])) ?></span>
+                            </div>
+                            <a href="/artikel/<?= htmlspecialchars($lc['post_slug'] ?: $lc['post_id']) ?>#comments" class="comm-link">
+                                “<?= htmlspecialchars($lc['title']) ?>”
+                            </a>
+                            <div class="comm-text">
+                                <?= htmlspecialchars(mb_substr($lc['content'], 0, 80)) . '...' ?>
+                            </div>
+                        </li>
+                        <?php endforeach; ?>
+                    </ul>
+                <?php endif; ?>
+            </div>
 
             <?php if(!empty($allTags)): ?>
             <div class="sidebar-widget">
@@ -356,43 +262,11 @@ function buildUrl($newPage) {
             </div>
             <?php endif; ?>
 
-            <div class="sidebar-widget">
-                <h3 class="sidebar-title"><?= htmlspecialchars($t['sb_comm_title']) ?></h3>
-                <?php if(empty($latestComments)): ?>
-                    <div style="color:var(--text-muted);font-size:0.9rem;"><?= htmlspecialchars($t['sb_no_comm']) ?></div>
-                <?php else: ?>
-                    <ul class="comm-list">
-                        <?php foreach($latestComments as $lc): ?>
-                        <li class="comm-item">
-                            <div class="comm-meta">
-                                <span class="comm-author"><?= htmlspecialchars($lc['author_name']) ?></span>
-                                <span>• <?= date($t['date_format'], strtotime($lc['created_at'])) ?></span>
-                            </div>
-                            <a href="/article.php?id=<?= $lc['post_id'] ?>#comments" class="comm-link">
-                                “<?= htmlspecialchars($lc['title']) ?>”
-                            </a>
-                            <div class="comm-text">
-                                <?= htmlspecialchars(mb_substr($lc['content'], 0, 80)) . '...' ?>
-                            </div>
-                        </li>
-                        <?php endforeach; ?>
-                    </ul>
-                <?php endif; ?>
-            </div>
         </aside>
     </div>
   </main>
 
-  <footer style="text-align: center; padding: 40px 20px; color: var(--text-muted); font-size: 0.9rem; margin-top: 50px; border-top: 1px solid var(--border);">
-    <div style="margin-bottom: 10px;">
-        &copy; <?= date('Y') ?> <?= htmlspecialchars($settings['blog_title'] ?? 'PiperBlog') ?>
-    </div>
-    <div>
-        📊 <?= htmlspecialchars($t['footer_total']) ?>: <strong><?= number_format($totalViews) ?></strong>
-        &bull; 
-        📅 <?= htmlspecialchars($t['footer_today']) ?>: <strong><?= number_format($todayViews) ?></strong>
-    </div>
-  </footer>
+  <?php include 'footer.php'; ?>
 
   <button id="backToTop" title="Nach oben">↑</button>
 

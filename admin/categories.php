@@ -5,11 +5,9 @@ if (empty($_SESSION['admin'])) { header('Location: /admin/login.php'); exit; }
 
 require_once __DIR__ . '/../src/App/Database.php';
 
-// Wir laden header.php später, aber wir brauchen die DB Verbindung vorher für die Logik
 $ini = parse_ini_file(__DIR__ . '/../config/config.ini', true, INI_SCANNER_TYPED) ?: [];
 $pdo = (new App\Database($ini['database'] ?? []))->pdo();
 
-// Um Zugriff auf Übersetzungen für Flash-Messages zu haben, laden wir sie hier manuell vor
 $currentLang = $_SESSION['lang'] ?? 'de';
 $langFile = __DIR__ . '/../config/lang/' . $currentLang . '.ini';
 $t_temp = file_exists($langFile) ? parse_ini_file($langFile, true) : [];
@@ -81,7 +79,7 @@ require_once 'header.php';
                 </form>
             </div>
 
-            <div class="card" style="padding: 0; overflow: hidden; background: #fff; box-shadow: 0 4px 6px rgba(0,0,0,0.05); border-radius: 12px;">
+            <div class="card" style="padding: 0; overflow: hidden; background: #fff; box-shadow: 0 4px 6px rgba(0,0,0,0.05); border-radius: 12px; border-top: 5px solid #3182ce;">
                 <table style="width: 100%; border-collapse: collapse; text-align: left;">
                     <thead>
                         <tr style="background: #f8fafc; border-bottom: 2px solid #e2e8f0;">

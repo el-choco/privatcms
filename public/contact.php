@@ -97,6 +97,7 @@ $languages = [
   <meta charset="utf-8">
   <title><?= htmlspecialchars($t['contact_title']) ?> - <?= htmlspecialchars($settings['blog_title'] ?? 'PiperBlog') ?></title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" type="image/x-icon" href="/favicon.ico">
   <link href="/assets/styles/main.css" rel="stylesheet">
   <style>
     :root {

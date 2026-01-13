@@ -25,6 +25,7 @@ $mailService = new App\MailService($pdo);
 <head>
     <meta charset="utf-8">
     <title><?= htmlspecialchars($tmLang['title'] ?? 'Mail Test') ?></title>
+    <link rel="icon" type="image/x-icon" href="/favicon.ico">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
     <style>
         body { font-family: 'Inter', sans-serif; background: #f0f2f5; padding: 40px; display: flex; justify-content: center; }

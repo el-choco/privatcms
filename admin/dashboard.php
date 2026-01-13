@@ -39,8 +39,8 @@ include 'header.php';
     <h1><?= htmlspecialchars($t['dashboard']['overview'] ?? 'Dashboard') ?></h1>
 </header>
 
-<div class="content-area">
-    
+<div class="content-area" style="margin: 30px 30px 30px 30px;"> 
+        
     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-bottom: 30px;">
         <div class="card" style="padding: 20px; text-align: center; border-top: 4px solid #3182ce;">
             <div style="font-size: 12px; color: #718096; font-weight: bold;"><?= htmlspecialchars($t['dashboard']['cards_posts_total'] ?? 'Posts') ?></div>

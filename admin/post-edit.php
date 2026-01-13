@@ -46,6 +46,7 @@ usort($allFiles, function($a, $b) use ($uploadDir) {
 <head>
     <meta charset="utf-8">
     <title><?= htmlspecialchars($peLang['title_prefix'] ?? 'Editor -') ?> <?= htmlspecialchars($data['title']) ?></title>
+    <link rel="icon" type="image/x-icon" href="/favicon.ico">
     <link href="/admin/assets/styles/admin.css" rel="stylesheet">
     
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
@@ -238,7 +239,12 @@ usort($allFiles, function($a, $b) use ($uploadDir) {
                         <button type="button" class="ed-btn" onclick="insertTag('<div style=\'text-align:right\'>', '</div>')"><?= htmlspecialchars($peLang['btn_right'] ?? 'Right') ?></button>
                         <button type="button" class="ed-btn" onclick="insertTag('<div style=\'text-align:left\'>', '</div>')"><?= htmlspecialchars($peLang['btn_left'] ?? 'Left') ?></button>
                         <div class="ed-sep"></div>
-                        <button type="button" class="ed-btn" onclick="insertTag('<span style=\'color:red\'>', '</span>')"><?= htmlspecialchars($peLang['btn_color'] ?? 'Color') ?></button>
+                        
+                        <button type="button" class="ed-btn" onclick="document.getElementById('html-color-picker').click()">
+                            <?= htmlspecialchars($peLang['btn_color'] ?? 'Color') ?>
+                        </button>
+                        <input type="color" id="html-color-picker" style="display:none">
+                        
                         <button type="button" class="ed-btn" onclick="insertTag('<mark>', '</mark>')"><?= htmlspecialchars($peLang['btn_mark'] ?? 'Mark') ?></button>
                         <div class="ed-sep"></div>
                         <button type="button" class="ed-btn" onclick="insertTag('<small>', '</small>')">Small</button>
@@ -390,6 +396,13 @@ usort($allFiles, function($a, $b) use ($uploadDir) {
         input.addEventListener('input', updatePreview);
         setTimeout(updatePreview, 100);
 
+        // --- NEW: Color Picker Logic ---
+        document.getElementById('html-color-picker').addEventListener('change', function(e) {
+            const color = e.target.value;
+            insertTag('<span style="color:' + color + '">', '</span>');
+        });
+
+        // --- FIXED: insertTag with Whitespace Handling ---
         function insertTag(open, close = '') {
             if (!input) return;
 
@@ -397,12 +410,20 @@ usort($allFiles, function($a, $b) use ($uploadDir) {
             const end = input.selectionEnd;
             const scrollTop = input.scrollTop;
 
-            const selectedText = input.value.substring(start, end);
-            const replacement = open + selectedText + close;
+            let text = input.value.substring(start, end);
+            
+            // FIX: Leerzeichen am Ende des markierten Textes erkennen und ausklammern
+            let trailingSpace = "";
+            if (text.length > 0 && text.endsWith(" ")) {
+                text = text.trimEnd();
+                trailingSpace = " ";
+            }
+
+            const replacement = open + text + close + trailingSpace;
 
             input.value = input.value.substring(0, start) + replacement + input.value.substring(end);
             
-            const newPos = start + open.length + selectedText.length + (selectedText.length === 0 ? 0 : close.length);
+            const newPos = start + open.length + text.length + (text.length === 0 ? 0 : close.length);
             input.focus();
             input.setSelectionRange(newPos, newPos);
             

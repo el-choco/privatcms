@@ -1,25 +1,29 @@
 <?php
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
+declare(strict_types=1);
+if (session_status() === PHP_SESSION_NONE) session_start();
+
+// 1. Check: Ist überhaupt jemand eingeloggt?
+if (empty($_SESSION['admin'])) { header('Location: /admin/login.php'); exit; }
+
+// 2. Check: Member und Viewer haben hier nichts verloren -> Raus zur Startseite!
+$role = $_SESSION['admin']['role'] ?? '';
+if ($role === 'member' || $role === 'viewer') {
+    header('Location: /'); 
+    exit;
 }
+
+require_once __DIR__ . '/../src/App/Database.php';
+$ini = parse_ini_file(__DIR__ . '/../config/config.ini', true, INI_SCANNER_TYPED) ?: [];
+$pdo = (new App\Database($ini['database'] ?? []))->pdo();
 
 $currentLang = $_SESSION['lang'] ?? 'de';
-
-if (!empty($_SESSION['timezone'])) {
-    date_default_timezone_set($_SESSION['timezone']);
-}
-
 $langFile = __DIR__ . '/../config/lang/' . $currentLang . '.ini';
 $t = file_exists($langFile) ? parse_ini_file($langFile, true) : [];
 
-if (!empty($_SESSION['date_fmt'])) {
-    $t['common']['date_fmt'] = $_SESSION['date_fmt'];
-    $t['common']['date_fmt_full'] = $_SESSION['date_fmt'] . ' H:i'; 
-}
+if (!empty($_SESSION['timezone'])) { date_default_timezone_set($_SESSION['timezone']); }
+if (!empty($_SESSION['date_fmt'])) { $t['common']['date_fmt'] = $_SESSION['date_fmt']; }
 
-$ini = parse_ini_file(__DIR__ . '/../config/config.ini', true, INI_SCANNER_TYPED) ?: [];
-$current_page = basename($_SERVER['PHP_SELF']);
-
+$cur = basename($_SERVER['PHP_SELF']);
 $userRole = $_SESSION['admin']['role'] ?? 'viewer';
 $isAdmin = $userRole === 'admin';
 ?>
@@ -28,87 +32,133 @@ $isAdmin = $userRole === 'admin';
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title><?= htmlspecialchars(($ini['app']['name'] ?? 'Blog') . ' - ' . ($t['admin_login']['title'] ?? 'Admin')) ?></title>
+    <link rel="icon" type="image/x-icon" href="/favicon.ico">
+    <title><?= htmlspecialchars($ini['app']['name'] ?? 'Admin') ?></title>
+    
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    
     <style>
-        body, html { margin: 0; padding: 0; height: 100vh; overflow: hidden; font-family: 'Inter', sans-serif; background: #f7fafc; }
+        body, html { margin: 0; padding: 0; height: 100vh; font-family: 'Inter', sans-serif; background: #f7fafc; color: #2d3748; overflow: hidden; }
         .admin-wrapper { display: flex; height: 100vh; width: 100vw; }
         
-        .admin-sidebar { width: 260px; background: #1a202c; color: #fff; flex-shrink: 0; display: flex; flex-direction: column; }
-        .sidebar-brand { padding: 25px 20px; font-size: 1.5rem; font-weight: bold; border-bottom: 1px solid #2d3748; color: #63b3ed; }
+        .admin-sidebar { width: 260px; background: #1a202c; color: #a0aec0; flex-shrink: 0; display: flex; flex-direction: column; overflow-y: auto; transition: width 0.3s; }
+        .sidebar-brand { padding: 25px 20px; font-size: 1.4rem; font-weight: 800; color: #63b3ed; text-decoration: none; display: block; border-bottom: 1px solid #2d3748; margin-bottom: 10px; }
         
-        .admin-sidebar nav { flex: 1; padding: 15px 0; overflow-y: auto; display: flex; flex-direction: column; }
-        .admin-sidebar nav a { display: block; padding: 12px 20px; color: #cbd5e0; text-decoration: none; transition: 0.2s; border-left: 3px solid transparent; }
-        .admin-sidebar nav a:hover, .admin-sidebar nav a.active { background: #2d3748; color: #fff; border-left-color: #63b3ed; }
+        .admin-sidebar nav { flex: 1; padding: 10px 15px; display: flex; flex-direction: column; gap: 5px; }
+        .nav-label { font-size: 0.75rem; font-weight: 700; text-transform: uppercase; color: #4a5568; margin: 15px 10px 5px; letter-spacing: 0.05em; }
         
-        .sidebar-footer { padding: 20px; border-top: 1px solid #2d3748; }
+        .nav-item { display: flex; align-items: center; padding: 10px 15px; color: #cbd5e0; text-decoration: none; transition: 0.2s; font-size: 0.9rem; font-weight: 500; border-radius: 8px; }
+        .nav-item:hover { color: #fff; background: rgba(255,255,255,0.08); }
+        .nav-item.active { background: #2d3748; color: #63b3ed; font-weight: 600; box-shadow: 0 1px 3px rgba(0,0,0,0.2); }
+        .nav-item i { width: 24px; text-align: center; margin-right: 12px; font-size: 1.1rem; opacity: 0.8; }
+        .nav-item.active i { opacity: 1; color: #63b3ed; }
 
-        .main-viewport { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
-        .top-header { background: #fff; padding: 20px 30px; border-bottom: 1px solid #e2e8f0; display: flex; align-items: center; justify-content: space-between; min-height: 70px; box-sizing: border-box; }
-        .top-header h1 { margin: 0; font-size: 1.4rem; color: #2d3748; }
-        .content-area { flex: 1; padding: 30px; overflow-y: auto; }
+        .sidebar-footer { padding: 20px; border-top: 1px solid #2d3748; margin-top: auto; }
+        .btn-back { display: flex; align-items: center; color: #a0aec0; text-decoration: none; font-size: 0.9rem; margin-bottom: 15px; transition: 0.2s; }
+        .btn-back:hover { color: #fff; }
+        .btn-logout { display: flex; align-items: center; color: #fc8181; text-decoration: none; font-weight: 600; font-size: 0.9rem; transition: 0.2s; }
+        .btn-logout:hover { color: #f56565; }
 
-        .card { background: #fff; border-radius: 12px; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.05); overflow: hidden; }
-        .btn { padding: 8px 16px; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; text-decoration: none; border: 1px solid #e2e8f0; background: #fff; transition: 0.2s; color: #4a5568; }
-        .btn-primary { background: #3182ce; color: #fff; border: none; }
-        .btn-primary:hover { background: #2b6cb0; }
+        .main-viewport { flex: 1; display: flex; flex-direction: column; overflow-y: auto; overflow-x: hidden; position: relative; background: #f7fafc; }
+        .admin-content { flex: 1; padding: 30px; }
+        
+        .card { background: #fff; border-radius: 8px; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.05); padding: 25px; margin-bottom: 20px; }
+        .btn { display: inline-flex; align-items: center; justify-content: center; padding: 10px 20px; border-radius: 6px; font-weight: 600; cursor: pointer; transition: 0.2s; border: 1px solid transparent; text-decoration: none; font-size: 0.9rem; }
+        .btn-primary { background: #3182ce; color: #fff; } .btn-primary:hover { background: #2b6cb0; }
+        .btn-danger { background: #e53e3e; color: #fff; } .btn-danger:hover { background: #c53030; }
+        
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th { text-align: left; padding: 12px 15px; background: #f7fafc; color: #4a5568; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 1px solid #e2e8f0; }
+        td { padding: 15px; border-bottom: 1px solid #e2e8f0; color: #2d3748; vertical-align: middle; }
+        tr:hover td { background: #f8fafc; }
         
         .form-group { margin-bottom: 20px; }
-        .form-label { display: block; margin-bottom: 8px; font-weight: 600; color: #4a5568; }
+        .form-label { display: block; margin-bottom: 8px; font-weight: 600; color: #4a5568; font-size: 0.9rem; }
         .form-control { width: 100%; padding: 10px; border: 1px solid #e2e8f0; border-radius: 6px; box-sizing: border-box; font-size: 14px; }
-        .alert-success { background: #c6f6d5; color: #276749; padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #9ae6b4; }
+        .form-control:focus { border-color: #3182ce; outline: none; box-shadow: 0 0 0 3px rgba(66, 153, 225, 0.2); }
     </style>
 </head>
 <body>
+
 <div class="admin-wrapper">
     <aside class="admin-sidebar">
-        <div class="sidebar-brand"><?= htmlspecialchars($ini['app']['name'] ?? 'Admin') ?></div>
+        <a href="index.php" class="sidebar-brand">
+            <?= htmlspecialchars($ini['app']['name'] ?? 'Admin') ?>
+        </a>
         
         <nav>
-            <a href="dashboard.php" class="<?= $current_page=='dashboard.php'?'active':'' ?>">
-                <?= htmlspecialchars($t['dashboard']['title'] ?? 'Dashboard') ?>
+            <a href="dashboard.php" class="nav-item <?= $cur === 'dashboard.php' || $cur === 'index.php' ? 'active' : '' ?>">
+                <i class="fa-solid fa-gauge"></i> <?= htmlspecialchars($t['dashboard']['title'] ?? 'Dashboard') ?>
             </a>
-            <a href="posts.php" class="<?= ($current_page=='posts.php' || $current_page=='post-create.php' || $current_page=='post-edit.php')?'active':'' ?>">
-                <?= htmlspecialchars($t['posts']['title'] ?? 'Beiträge') ?>
+            
+            <a href="posts.php" class="nav-item <?= in_array($cur, ['posts.php', 'post-create.php', 'post-edit.php']) ? 'active' : '' ?>">
+                <i class="fa-solid fa-pen-nib"></i> <?= htmlspecialchars($t['posts']['title'] ?? 'Posts') ?>
             </a>
-            <a href="files.php" class="<?= $current_page=='files.php'?'active':'' ?>">
-                <?= htmlspecialchars($t['files']['title'] ?? 'Dateien') ?>
+            
+            <a href="pages.php" class="nav-item <?= in_array($cur, ['pages.php', 'page-edit.php']) ? 'active' : '' ?>">
+                <i class="fa-solid fa-file-lines"></i> <?= htmlspecialchars($t['pages']['title'] ?? 'Pages') ?>
+            </a>
+
+            <a href="menus.php" class="nav-item <?= $cur === 'menus.php' ? 'active' : '' ?>">
+                <i class="fa-solid fa-bars"></i> <?= htmlspecialchars($t['menu']['title'] ?? 'Menu') ?>
+            </a>
+
+            <a href="files.php" class="nav-item <?= $cur === 'files.php' ? 'active' : '' ?>">
+                <i class="fa-solid fa-folder-open"></i> <?= htmlspecialchars($t['files']['title'] ?? 'Files') ?>
+            </a>
+
+            <a href="forums.php" class="nav-item <?= $cur === 'forums.php' ? 'active' : '' ?>">
+                <i class="fa-solid fa-comments"></i> <?= htmlspecialchars($t['forum']['title'] ?? 'Forum') ?>
             </a>
             
             <?php if ($isAdmin): ?>
-            <a href="categories.php" class="<?= $current_page=='categories.php'?'active':'' ?>">
-                <?= htmlspecialchars($t['categories']['title'] ?? 'Kategorien') ?>
-            </a>
-            <a href="comments.php" class="<?= $current_page=='comments.php'?'active':'' ?>">
-                <?= htmlspecialchars($t['comments']['title'] ?? 'Kommentare') ?>
-            </a>
-            <a href="users.php" class="<?= ($current_page=='users.php' || $current_page=='user-edit.php')?'active':'' ?>">
-                <?= htmlspecialchars($t['users']['title'] ?? 'Benutzer') ?>
-            </a>
-            <a href="activity-log.php" class="<?= $current_page=='activity-log.php'?'active':'' ?>">
-                <?= htmlspecialchars($t['activity_log']['title'] ?? 'Logbuch') ?>
-            </a>            
-            <a href="messages.php" class="<?= $current_page=='messages.php'?'active':'' ?>">
-                <?= htmlspecialchars($t['messages']['menu_link'] ?? 'Inbox') ?>
-            </a>
-            <a href="change-language.php" class="<?= $current_page=='change-language.php'?'active':'' ?>">
-                <?= htmlspecialchars($t['language_settings']['title'] ?? 'Sprache & Region') ?>
-            </a>
+                <div class="nav-label">Management</div>
+                
+                <a href="categories.php" class="nav-item <?= $cur === 'categories.php' ? 'active' : '' ?>">
+                    <i class="fa-solid fa-tags"></i> <?= htmlspecialchars($t['categories']['title'] ?? 'Categories') ?>
+                </a>
 
-            <a href="settings.php" class="<?= $current_page=='settings.php'?'active':'' ?>">
-                <?= htmlspecialchars($t['settings']['title'] ?? 'Einstellungen') ?>
-            </a>
+                <a href="forum-labels.php" class="nav-item <?= $cur === 'forum-labels.php' ? 'active' : '' ?>">
+                    <i class="fa-solid fa-tag"></i> <?= htmlspecialchars($t['forum']['labels'] ?? 'Forum Labels') ?>
+                </a>
+                
+                <a href="comments.php" class="nav-item <?= $cur === 'comments.php' ? 'active' : '' ?>">
+                    <i class="fa-solid fa-comments"></i> <?= htmlspecialchars($t['comments']['title'] ?? 'Comments') ?>
+                </a>
+                
+                <a href="users.php" class="nav-item <?= in_array($cur, ['users.php', 'user-edit.php']) ? 'active' : '' ?>">
+                    <i class="fa-solid fa-users"></i> <?= htmlspecialchars($t['users']['title'] ?? 'Users') ?>
+                </a>
+
+                <div class="nav-label">System</div>
+
+                <a href="activity-log.php" class="nav-item <?= $cur === 'activity-log.php' ? 'active' : '' ?>">
+                    <i class="fa-solid fa-clock-rotate-left"></i> <?= htmlspecialchars($t['activity_log']['title'] ?? 'Log') ?>
+                </a>            
+                
+                <a href="messages.php" class="nav-item <?= $cur === 'messages.php' ? 'active' : '' ?>">
+                    <i class="fa-solid fa-envelope"></i> <?= htmlspecialchars($t['messages']['menu_link'] ?? 'Inbox') ?>
+                </a>
+                
+                <a href="change-language.php" class="nav-item <?= $cur === 'change-language.php' ? 'active' : '' ?>">
+                    <i class="fa-solid fa-earth-americas"></i> <?= htmlspecialchars($t['language_settings']['title'] ?? 'Region') ?>
+                </a>
+
+                <a href="settings.php" class="nav-item <?= $cur === 'settings.php' ? 'active' : '' ?>">
+                    <i class="fa-solid fa-gear"></i> <?= htmlspecialchars($t['settings']['title'] ?? 'Settings') ?>
+                </a>
             <?php endif; ?>
-
-            <a href="/" style="margin-top: auto; border-top: 1px solid #2d3748;">
-                <?= htmlspecialchars($t['common']['back_to_blog'] ?? '← Back to Blog') ?>
-            </a>
         </nav>
 
         <div class="sidebar-footer">
-            <a href="logout.php" style="color: #fc8181; text-decoration: none; font-size: 14px; display: flex; align-items: center; gap: 8px;">
-                <?= htmlspecialchars($t['common']['logout'] ?? 'Abmelden') ?>
-                <span style="font-size: 12px; opacity: 0.7;">(<?= htmlspecialchars($_SESSION['admin']['username'] ?? 'User') ?>)</span>
+            <a href="/" class="btn-back">
+                <i class="fa-solid fa-arrow-left" style="width:24px; text-align:center; margin-right:12px;"></i> 
+                <?= htmlspecialchars($t['common']['back_to_blog'] ?? 'Back') ?>
+            </a>
+            <a href="logout.php" class="btn-logout">
+                <i class="fa-solid fa-right-from-bracket" style="width:24px; text-align:center; margin-right:12px;"></i> 
+                <?= htmlspecialchars($t['common']['logout'] ?? 'Logout') ?> 
             </a>
         </div>
     </aside>
