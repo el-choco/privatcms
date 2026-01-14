@@ -122,7 +122,7 @@ require_once 'header.php';
 </style>
 
 <div class="admin-content">
-    <div style="max-width: 1500px; margin: 0 auto;">
+    <div style="max-width: 1530px; margin: 0 auto;">
         <h1 style="margin-bottom: 25px;"><?= htmlspecialchars($sLang['header'] ?? 'System Settings') ?></h1>
         <?= $message ?>
 

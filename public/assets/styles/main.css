@@ -61,7 +61,7 @@ body { background-color: var(--bg-body); color: var(--text-main); margin: 0; fon
 .post-card__title { margin: 0 0 10px 0; font-size: 1.3rem; line-height: 1.3; }
 .post-card__title a { text-decoration: none; color: var(--text-main); }
 .post-card__meta { margin-bottom: 12px; display: flex; align-items: center; gap: 10px; font-size: 0.85rem; flex-wrap: wrap; }
-.badge { background: #e7f3ff; color: #1877f2; padding: 3px 10px; border-radius: 5px; font-weight: bold; }
+.badge { background: #e7f3ff; color: #1877f2 !important; padding: 3px 10px; border-radius: 5px; font-weight: bold; }
 .badge-sticky { background: #e53e3e; color: white; padding: 3px 10px; border-radius: 5px; font-weight: bold; }
 .date { color: var(--text-muted); }
 .author { color: var(--text-muted); display: flex; align-items: center; gap: 4px; }
