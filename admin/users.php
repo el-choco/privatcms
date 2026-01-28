@@ -40,7 +40,7 @@ require_once 'header.php';
     <div style="display: flex; justify-content: center; padding-top: 20px;">
         <div style="width: 100%; max-width: 1500px;">
             <header style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px;">
-                <h1 style="margin:0; font-size: 1.5rem; color: #1a202c;">
+                <h1 style="margin:0; font-size: 2rem; color: #1a202c;">
                     <?= htmlspecialchars($uLang['title'] ?? 'User Management') ?>
                 </h1>
                 <a href="user-edit.php" class="btn btn-primary" style="font-weight: bold;">
@@ -97,13 +97,13 @@ require_once 'header.php';
                                 <th style="padding: 12px; text-align: left; width: 40%; color: #4a5568;"><?= htmlspecialchars($uLang['perm_action'] ?? 'Action') ?></th>
                                 <th style="padding: 12px; width: 15%; color: #718096;"><?= htmlspecialchars($rLang['member'] ?? 'Member') ?></th>
                                 <th style="padding: 12px; width: 15%; color: #718096;"><?= htmlspecialchars($rLang['viewer'] ?? 'Viewer') ?></th>
-                                <th style="padding: 12px; width: 15%; color: #3182ce;"><?= htmlspecialchars($rLang['editor'] ?? 'Editor') ?></th>
+                                <th style="padding: 12px; width: 11%; color: #3182ce;"><?= htmlspecialchars($rLang['editor'] ?? 'Editor') ?></th>
                                 <th style="padding: 12px; width: 15%; color: #2f855a;"><?= htmlspecialchars($rLang['admin'] ?? 'Admin') ?></th>
                             </tr>
                         </thead>
                         <tbody style="font-size: 0.95rem;">
                             <tr style="border-bottom: 1px solid #f7fafc; background: #f0fff4;">
-                                <td style="padding: 10px; text-align: left; font-weight:bold; color:#276749;">
+                                <td style="padding: 10px; text-align: center; font-weight:bold; color:#276749;">
                                     <?= htmlspecialchars($uLang['p_forum_access'] ?? 'Forum: Read & Write') ?>
                                 </td>
                                 <td style="color: #38a169;">✅</td>

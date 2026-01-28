@@ -67,7 +67,8 @@ $threads = $pdo->prepare("SELECT t.*, u.username,
     JOIN users u ON t.user_id = u.id 
     LEFT JOIN forum_labels l ON t.label_id = l.id
     WHERE t.board_id = ? 
-    ORDER BY t.is_sticky DESC, last_activity DESC");
+    ORDER BY t.is_sticky DESC, t.sort_order ASC, t.created_at DESC");
+    
 $threads->execute([$board['id']]);
 $threads = $threads->fetchAll();
 
@@ -100,6 +101,7 @@ usort($allFiles, function($a, $b) use ($uploadDir) { return filemtime($uploadDir
     .thread-meta { font-size: 0.85rem; color: var(--text-muted); margin-top: 4px; }
     
     .btn-primary { background: var(--primary); color: white; border: none; padding: 12px 20px; border-radius: 6px; font-weight: bold; cursor: pointer; }
+    
     .form-input { width: 100%; padding: 12px; border: 1px solid var(--border); border-radius: 6px; box-sizing: border-box; font-size: 1rem; background: var(--bg-body); color: var(--text-main); margin-bottom: 15px; }
 
     .badge { display: inline-block; padding: 3px 6px; border-radius: 4px; font-size: 0.7rem; font-weight: 700; text-transform: uppercase; color: #fff; margin-right: 6px; vertical-align: middle; line-height:1; }
@@ -122,41 +124,72 @@ usort($allFiles, function($a, $b) use ($uploadDir) { return filemtime($uploadDir
     .ed-btn { background: #fff; border: 1px solid #ddd; border-radius: 6px; padding: 5px 10px; font-size: 13px; cursor: pointer; color: #444; display: inline-flex; align-items: center; justify-content: center; min-width: 30px; transition: all 0.2s; font-weight: 500; }
     .ed-btn:hover { background: #f0f2f5; border-color: #bbb; color: #000; }
     .ed-sep { width: 1px; height: 20px; background: #eee; margin: 0 5px; }
+    
     .ico-img::before { content: "🖼️"; font-size:12px; }
     .ico-link::before { content: "🔗"; font-size:12px; }
+    
     .editor-split { display: flex; min-height: 200px; }
     .editor-area { flex: 1; border-right: 1px solid #ddd; position: relative; }
     .editor-area textarea { width: 100%; height: 100%; border: none; padding: 15px; resize: vertical; outline: none; font-family: monospace; font-size: 14px; box-sizing: border-box; display: block; min-height: 200px; }
+    
     .preview-area { flex: 1; padding: 15px; background: #fff; overflow-y: auto; max-height: 500px; }
     .preview-area pre { background: #23241f; color: #f8f8f2; padding: 1em; border-radius: 6px; overflow-x: auto; }
     .preview-area code { font-family: 'Fira Code', Consolas, monospace; font-size: 14px; }
+    
     #mediaModal, #iconModal { display: none; position: fixed; z-index: 10000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); align-items: center; justify-content: center; }
     .modal-content { background: white; padding: 20px; border-radius: 12px; width: 80%; max-width: 900px; max-height: 80vh; overflow-y: auto; display: flex; flex-direction: column; }
+    
     .media-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 15px; margin-top: 15px; }
     .media-item { cursor: pointer; border: 2px solid transparent; border-radius: 6px; overflow: hidden; transition: 0.2s; text-align: center; background: #f8fafc; padding: 5px; }
     .media-item:hover { border-color: #3182ce; transform: scale(1.05); }
     .media-item img { width: 100%; height: 100px; object-fit: cover; border-radius: 4px; }
+    
     .file-icon { font-size: 3rem; line-height: 100px; height: 100px; }
+    
     .smiley-popover { display: none; position: absolute; background: #fff; border: 1px solid #ccc; border-radius: 8px; padding: 10px; width: 300px; height: 250px; overflow-y: auto; box-shadow: 0 4px 15px rgba(0,0,0,0.2); z-index: 1000; }
     .smiley-grid { display: grid; grid-template-columns: repeat(8, 1fr); gap: 5px; }
     .smiley-item { cursor: pointer; font-size: 20px; text-align: center; padding: 5px; border-radius: 4px; }
     .smiley-item:hover { background: #f0f2f5; }
+    
     .icon-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(60px, 1fr)); gap: 10px; max-height: 60vh; overflow-y: auto; }
     .icon-item { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 10px; border: 1px solid #eee; border-radius: 6px; cursor: pointer; transition: all 0.2s; }
     .icon-item:hover { background: #e7f3ff; border-color: #1877f2; color: #1877f2; }
     .icon-item i { font-size: 24px; margin-bottom: 5px; }
     .icon-name { font-size: 10px; color: #666; text-align: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; width: 100%; }
     
-    .subforum-container { margin-bottom: 30px; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; background: var(--bg-card); box-shadow: 0 2px 4px rgba(0,0,0,0.02); }
     .section-header { background: linear-gradient(90deg, var(--primary), #2b6cb0); color: #fff; padding: 10px 20px; font-size: 1rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; display: flex; align-items: center; }
     .subforum-list { display: flex; flex-direction: column; }
     .subforum-card { display: flex; align-items: center; padding: 15px 25px; text-decoration: none; color: inherit; border-bottom: 1px solid var(--border); transition: background 0.15s; }
     .subforum-card:last-child { border-bottom: none; }
     .subforum-card:hover { background: var(--bg-body); }
     .subforum-icon { font-size: 1.5rem; color: var(--primary); margin-right: 15px; opacity: 0.8; width: 30px; text-align: center; }
+    .subforum-container { margin-bottom: 30px; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; background: var(--bg-card); box-shadow: 0 2px 4px rgba(0,0,0,0.02); }
     .subforum-stats { font-size: 0.8rem; color: var(--text-muted); margin-left: auto; text-align: right; }
+    
     .badge-count { background: #edf2f7; color: #4a5568; padding: 2px 8px; border-radius: 12px; font-weight: 600; font-size: 0.75rem; }
+    
+
     [data-theme="dark"] .badge-count { background: #2d3748; color: #cbd5e0; }
+    [data-theme="dark"] .editor-container { background: #2d3748; border-color: #4a5568; }
+    [data-theme="dark"] .editor-toolbar { background: #1a202c; border-bottom-color: #4a5568; }
+    [data-theme="dark"] .ed-btn { background: #2d3748; border-color: #4a5568; color: #e2e8f0; }
+    [data-theme="dark"] .ed-btn:hover { background: #4a5568; color: #fff; }
+    [data-theme="dark"] .ed-sep { background: #4a5568; }
+    [data-theme="dark"] .editor-area textarea { background: #2d3748; color: #e2e8f0; }
+    [data-theme="dark"] .editor-area { border-right-color: #4a5568; }
+    [data-theme="dark"] .preview-area { background: #2d3748; color: #e2e8f0; }
+    [data-theme="dark"] .smiley-popover { background: #1a202c; border-color: #4a5568; }
+    [data-theme="dark"] .smiley-item:hover { background: #2d3748; }
+    [data-theme="dark"] .modal-content { background: #2d3748; color: #fff; }
+    [data-theme="dark"] .media-item { background: #1a202c; }
+    [data-theme="dark"] .media-item .file-icon { color: #e2e8f0; }
+    [data-theme="dark"] .icon-item { border-color: #4a5568; }
+    [data-theme="dark"] .icon-item i { color: #e2e8f0; }
+    [data-theme="dark"] .icon-name { color: #a0aec0; }
+    [data-theme="dark"] .icon-item:hover { background: #1a202c; }
+    [data-theme="dark"] .form-input { background: #2d3748; color: #fff; border-color: #4a5568; }
+
+    :not(pre) > code{background-color:#23241f;color:#f8f8f2;padding:2px 6px;border-radius:4px;font-family:'Fira Code',Consolas,monospace;font-size:.9em;border:1px solid #3e3d32}
     </style>
 </head>
 <body>
@@ -242,7 +275,7 @@ usort($allFiles, function($a, $b) use ($uploadDir) { return filemtime($uploadDir
                                     <button type="button" class="ed-btn" onclick="insertTag('## ', '')">H2</button>
                                     <button type="button" class="ed-btn" onclick="insertTag('### ', '')">H3</button>
                                     <div class="ed-sep"></div>
-                                    <button type="button" class="ed-btn ico-link" onclick="insertTag('[Link Text](', ')')" title="<?= htmlspecialchars($peLang['tooltip_link'] ?? 'Link') ?>"></button>
+                                    <button type="button" class="ed-btn ico-link" onclick="insertLink()" title="<?= htmlspecialchars($peLang['tooltip_link'] ?? 'Link') ?>"></button>
                                     <button type="button" class="ed-btn ico-img" onclick="openMediaModal()" title="<?= htmlspecialchars($peLang['tooltip_image'] ?? 'Image') ?>"></button>
                                     <div class="ed-sep"></div>
                                     <button type="button" class="ed-btn" onclick="insertTag('`', '`')" style="font-family:monospace;">`code`</button>
@@ -326,6 +359,11 @@ usort($allFiles, function($a, $b) use ($uploadDir) { return filemtime($uploadDir
                                         <?= htmlspecialchars($t['label_title']) ?>
                                     </span>
                                 <?php endif; ?>
+                                
+                                <?php if($t['is_locked']): ?>
+                                    <i class="fa-solid fa-lock" title="<?= htmlspecialchars($fLang['locked'] ?? 'Locked') ?>" style="color:var(--text-muted); font-size:0.9rem; margin-right:5px;"></i>
+                                <?php endif; ?>
+
                                 <?= htmlspecialchars($t['title']) ?>
                             </div>
                             <div class="thread-meta">
@@ -377,66 +415,120 @@ usort($allFiles, function($a, $b) use ($uploadDir) { return filemtime($uploadDir
     </div>
 </div>
 
-<?php
-try {
-    $totalViews = (int)$pdo->query("SELECT SUM(views) FROM daily_stats")->fetchColumn();
-    $todayViews = (int)$pdo->query("SELECT views FROM daily_stats WHERE date = CURDATE()")->fetchColumn();
-} catch (Exception $e) { 
-    $totalViews = 0; 
-    $todayViews = 0; 
-}
-
+<?php 
+try { $totalViews = (int)$pdo->query("SELECT SUM(views) FROM daily_stats")->fetchColumn(); $todayViews = (int)$pdo->query("SELECT views FROM daily_stats WHERE date = CURDATE()")->fetchColumn(); } catch (Exception $e) { $totalViews=0; $todayViews=0; }
 $t['footer_total'] = $iniLang['frontend']['footer_stats_total'] ?? 'Total Visits';
 $t['footer_today'] = $iniLang['frontend']['footer_stats_today'] ?? 'Today';
-
-include 'footer.php'; ?>
+include 'footer.php'; 
+?>
 
 <script>
+    document.addEventListener('DOMContentLoaded', (event) => {
+        if (window.hljs) {
+            hljs.highlightAll();
+        }
+    });
+
+    const toggleBtn = document.getElementById('theme-toggle');
+    const html = document.documentElement;
+    const savedTheme = localStorage.getItem('theme') || 'light';
+    html.setAttribute('data-theme', savedTheme);
+    if (toggleBtn) { toggleBtn.addEventListener('click', () => { const current = html.getAttribute('data-theme'); const next = current === 'dark' ? 'light' : 'dark'; html.setAttribute('data-theme', next); localStorage.setItem('theme', next); }); }
+    // --------------------------------------------------------
+
     const input = document.getElementById('markdown-input');
     const preview = document.getElementById('preview-box');
     
-    function updatePreview() { 
-        if(typeof marked !== 'undefined') {
-            preview.innerHTML = marked.parse(input.value);
-            if(window.hljs) hljs.highlightAll();
+    if (input) {
+        function updatePreview() { 
+            if(typeof marked !== 'undefined') {
+                preview.innerHTML = marked.parse(input.value);
+                if(window.hljs) hljs.highlightAll();
+            }
         }
-    }
-    input.addEventListener('input', updatePreview);
+        input.addEventListener('input', updatePreview);
 
-    document.getElementById('html-color-picker').addEventListener('change', function(e) {
-        const color = e.target.value;
-        insertTag('<span style="color:' + color + '">', '</span>');
-    });
+        document.getElementById('html-color-picker').addEventListener('change', function(e) {
+            const color = e.target.value;
+            insertTag('<span style="color:' + color + '">', '</span>');
+        });
 
-    function insertTag(open, close = '') {
-        const start = input.selectionStart;
-        const end = input.selectionEnd;
-        let text = input.value.substring(start, end);
-        
-        let trailingSpace = "";
-        if (text.length > 0 && text.endsWith(" ")) {
-            text = text.trimEnd();
-            trailingSpace = " ";
+        function insertTag(open, close = '') {
+            const scrollTop = input.scrollTop; 
+            
+            const start = input.selectionStart;
+            const end = input.selectionEnd;
+            const text = input.value.substring(start, end);
+
+            const matchStart = text.match(/^\s*/);
+            const prefixWS = matchStart ? matchStart[0] : "";
+
+            const matchEnd = text.match(/\s*$/);
+            const suffixWS = matchEnd ? matchEnd[0] : "";
+
+            const coreText = text.trim();
+
+            let replacement = "";
+
+            if (coreText.length === 0) {
+                replacement = prefixWS + open + close + suffixWS;
+            } else {
+                replacement = prefixWS + open + coreText + close + suffixWS;
+            }
+
+            input.value = input.value.substring(0, start) + replacement + input.value.substring(end);
+
+            if (coreText.length === 0) {
+                const newPos = start + prefixWS.length + open.length;
+                input.focus();
+                input.setSelectionRange(newPos, newPos);
+            } else {
+                const newPos = start + replacement.length;
+                input.focus();
+                input.setSelectionRange(newPos, newPos);
+            }
+            
+            input.scrollTop = scrollTop; 
+            updatePreview();
         }
 
-        const replace = open + text + close + trailingSpace;
-        input.value = input.value.substring(0, start) + replace + input.value.substring(end);
-        
-        const newPos = start + open.length + text.length + (text.length===0?0:close.length);
-        input.focus();
-        input.setSelectionRange(newPos, newPos);
-        updatePreview();
+        function insertLink() {
+            if (!input) return;
+            const scrollTop = input.scrollTop;
+            const start = input.selectionStart;
+            const end = input.selectionEnd;
+            let text = input.value.substring(start, end);
+
+            let url = prompt("<?= htmlspecialchars($peLang['prompt_url'] ?? 'Enter URL:') ?>", "https://");
+            if (url === null) return;
+
+            let label = text.length > 0 ? text : "<?= htmlspecialchars($peLang['default_link_text'] ?? 'Link Text') ?>";
+            const replacement = `[${label}](${url})`;
+
+            input.value = input.value.substring(0, start) + replacement + input.value.substring(end);
+            
+            const newPos = start + replacement.length;
+            input.focus();
+            input.setSelectionRange(newPos, newPos);
+            input.scrollTop = scrollTop;
+            updatePreview();
+        }
     }
 
     function openMediaModal() { document.getElementById('mediaModal').style.display='flex'; }
-    function selectImage(f) { insertTag(`\n![Image](/uploads/${f})\n`); document.getElementById('mediaModal').style.display='none'; }
+    function selectImage(f) { 
+        if(input) { 
+            insertTag(`\n![Image](/uploads/${f})\n`); 
+            document.getElementById('mediaModal').style.display='none'; 
+        }
+    }
     
     function uploadFile(el) {
         if(el.files.length===0) return;
         const fd = new FormData(); fd.append('file', el.files[0]);
         const st = document.getElementById('uploadStatus'); st.style.display='block'; st.innerText='Uploading...';
         
-        fetch('upload-handler.php', { method:'POST', body:fd })
+        fetch('/upload-handler.php', { method:'POST', body:fd })
         .then(r=>r.json()).then(d=>{
             if(d.status==='ok') {
                 st.innerText='Uploaded!';
@@ -452,13 +544,19 @@ include 'footer.php'; ?>
         el.value='';
     }
 
-    const smileys = ["😀","😃","😄","😁","😆","😅","😂","🤣","😊","😇","🙂","🙃","😉","😌","😍","🥰","😘","😗","😙","😚","😋","😛","😝","😜","🤪","🤨","🧐","🤓","😎","🤩","🥳","😏","😒","😞","😔","😟","😕","🙁","☹️","😣","😖","😫","😩","🥺","😢","😭","😤","😠","😡","🤬","🤯","😳","🥵","🥶","😱","😨","😰","😥","😓","🤗","🤔","🤭","🤫","🤥","😶","😐","😑","😬","🙄","😯","😦","😧","😮","😲","🥱","😴","🤤","😪","😵","🤐","🥴","🤢","🤮","🤧","😷","🤒","🤕","🤑","🤠","😈","👿","👹","👺","🤡","💩","👻","💀","👽","👾","🤖","🎃","😺","😸","😹","😻","😼","😼","😽","🙀","😿","𘘾","🤲","👐","🙌","👏","🤝","👍","👎","👊","✊","🤛","🤜","🤞","✌️","🤟","🤘","👌","🤏","👈","👉","👆","👇","☝️","✋","🤚","🖐","🖖","👋","🤙","💪","🧠","🦷","🦴","👀","👁","👄","💋","🦶","🦵","👃","👂","🦻","👣","🔥","💥","✨","🌟","💫","❤️","🧡","💛","💚","💙","💜","🖤","🤍","🤎","💔","❣️","💕","💞","💓","💗","💖","💘","💝","💟"];
+    const smileys = ["😀","😃","😄","😁","😆","😅","😂","🤣","😊","😇","🙂","🙃","😉","😌","😍","🥰","😘","😗","😙","😚","😋","😛","😝","😜","🤪","🤨","🧐","🤓","😎","🤩","🥳","😏","😒","😞","😔","😟","😕","🙁","☹️","😣","😖","😫","😩","🥺","😢","😭","😤","😠","😡","🤬","🤯","😳","🥵","🥶","😱","😨","😰","😥","🤗","🤔","🤭","🤫","🤥","😶","😐","😑","😬","🙄","😯","😦","😧","😮","😲","🥱","😴","🤤","😪","😵","🤐","🥴","🤢","🤮","🤧","😷","🤒","🤕","🤑","🤠","😈","👿","👹","👺","🤡","💩","👻","💀","👽","👾","🤖","🎃","😺","😸","😹","😻","😼","😼","😽","🙀","😿","𘘾","🤲","👐","🙌","👏","🤝","👍","👎","👊","✊","🤛","🤜","🤞","✌️","🤟","🤘","👌","🤏","👈","👉","👆","👇","☝️","✋","🤚","🖐","🖖","👋","🤙","💪","🧠","🦷","🦴","👀","👁","👄","💋","🦶","🦵","👃","👂","🦻","👣","🔥","💥","✨","🌟","💫","❤️","🧡","💛","💚","💙","💜","🖤","🤍","🤎","💔","❣️","💕","💞","💓","💗","💖","💘","💝","💟"];
     const smGrid = document.getElementById('smileyGrid');
-    smileys.forEach(s=>{
-        const sp = document.createElement('span'); sp.className='smiley-item'; sp.innerText=s;
-        sp.onclick=()=>{ insertTag(s); document.getElementById('smileyPopover').style.display='none'; };
-        smGrid.appendChild(sp);
-    });
+    
+    if (smGrid) {
+        smileys.forEach(s=>{
+            const sp = document.createElement('span'); sp.className='smiley-item'; sp.innerText=s;
+            sp.onclick=()=>{ 
+                if(input) { insertTag(s); document.getElementById('smileyPopover').style.display='none'; }
+            };
+            smGrid.appendChild(sp);
+        });
+    }
+
     function toggleSmileyPicker(btn) {
         const p = document.getElementById('smileyPopover');
         if(p.style.display==='block') p.style.display='none';
@@ -467,30 +565,30 @@ include 'footer.php'; ?>
 
     const icons = ["fa-solid fa-user", "fa-regular fa-user", "fa-solid fa-users", "fa-solid fa-user-plus", "fa-solid fa-house", "fa-solid fa-magnifying-glass", "fa-solid fa-bars", "fa-solid fa-envelope", "fa-regular fa-envelope", "fa-solid fa-heart", "fa-regular fa-heart", "fa-solid fa-star", "fa-regular fa-star", "fa-solid fa-check", "fa-solid fa-xmark", "fa-solid fa-image", "fa-solid fa-video", "fa-solid fa-camera", "fa-solid fa-download", "fa-solid fa-upload", "fa-solid fa-share", "fa-solid fa-thumbs-up", "fa-solid fa-thumbs-down", "fa-solid fa-comment", "fa-solid fa-pen", "fa-solid fa-trash", "fa-solid fa-gear", "fa-solid fa-folder", "fa-solid fa-file", "fa-solid fa-code", "fa-solid fa-terminal", "fa-solid fa-bug", "fa-solid fa-database", "fa-solid fa-cloud", "fa-solid fa-wifi", "fa-solid fa-desktop", "fa-solid fa-mobile", "fa-brands fa-facebook", "fa-brands fa-twitter", "fa-brands fa-instagram", "fa-brands fa-github", "fa-brands fa-discord", "fa-brands fa-youtube", "fa-brands fa-docker", "fa-brands fa-php", "fa-brands fa-js", "fa-brands fa-html5", "fa-brands fa-css3", "fa-brands fa-python", "fa-brands fa-linux", "fa-brands fa-windows", "fa-brands fa-apple", "fa-brands fa-android", "fa-brands fa-google"];
     const icGrid = document.getElementById('iconGrid');
-    function renderIcons(flt='') {
-        icGrid.innerHTML=''; const l=flt.toLowerCase();
-        icons.forEach(c=>{
-            if(c.toLowerCase().includes(l)) {
-                const d=document.createElement('div'); d.className='icon-item';
-                d.innerHTML=`<i class="${c}"></i><div style="font-size:9px;overflow:hidden;width:100%">${c.replace('fa-solid fa-','')}</div>`;
-                d.onclick=()=>{ insertTag(`<i class="${c}"></i>`); document.getElementById('iconModal').style.display='none'; };
-                icGrid.appendChild(d);
-            }
-        });
+    
+    if (icGrid) {
+        function renderIcons(flt='') {
+            icGrid.innerHTML=''; const l=flt.toLowerCase();
+            icons.forEach(c=>{
+                if(c.toLowerCase().includes(l)) {
+                    const d=document.createElement('div'); d.className='icon-item';
+                    d.innerHTML=`<i class="${c}"></i><div style="font-size:9px;overflow:hidden;width:100%">${c.replace('fa-solid fa-','')}</div>`;
+                    d.onclick=()=>{ 
+                        if(input) { insertTag(`<i class="${c}"></i>`); document.getElementById('iconModal').style.display='none'; }
+                    };
+                    icGrid.appendChild(d);
+                }
+            });
+        }
+        function openIconModal(){ document.getElementById('iconModal').style.display='flex'; renderIcons(); document.getElementById('iconSearch').focus(); }
+        function filterIcons(){ renderIcons(document.getElementById('iconSearch').value); }
     }
-    function openIconModal(){ document.getElementById('iconModal').style.display='flex'; renderIcons(); document.getElementById('iconSearch').focus(); }
-    function filterIcons(){ renderIcons(document.getElementById('iconSearch').value); }
 
     function toggleLang() { document.getElementById('langMenu').classList.toggle('show'); }
     window.addEventListener('click', function(e) { 
         if (!document.getElementById('langDropdown').contains(e.target)) document.getElementById('langMenu').classList.remove('show'); 
-        if (!e.target.closest('button') && !document.getElementById('smileyPopover').contains(e.target)) document.getElementById('smileyPopover').style.display='none';
+        if (!e.target.closest('button') && document.getElementById('smileyPopover') && !document.getElementById('smileyPopover').contains(e.target)) document.getElementById('smileyPopover').style.display='none';
     });
-    const toggleBtn = document.getElementById('theme-toggle');
-    const html = document.documentElement;
-    const savedTheme = localStorage.getItem('theme') || 'light';
-    html.setAttribute('data-theme', savedTheme);
-    if (toggleBtn) { toggleBtn.addEventListener('click', () => { const current = html.getAttribute('data-theme'); const next = current === 'dark' ? 'light' : 'dark'; html.setAttribute('data-theme', next); localStorage.setItem('theme', next); }); }
 </script>
 </body>
 </html>

@@ -1,6 +1,6 @@
 # 🥧 PrivateCMS
 
-> **The leap from blog to CMS is accomplished.** > **Der Sprung vom Blog zum CMS ist vollbracht.**
+> **The leap from blog to CMS is accomplished.**
 
 **PrivateCMS** is a modern, lightweight, and Docker-based Content Management System (CMS) designed specifically for bloggers and developers. It offers an elegant user interface, powerful management features, and is ready to run in minutes thanks to Docker.
 
@@ -74,32 +74,45 @@ PrivateCMS is optimized for **Docker**, making installation extremely simple.
 * Docker & Docker Compose installed.
 * Git (optional, to clone the repo).
 
-### Step-by-Step Guide
+### Step-by-Step Guide (Docker)
 
-1.  **Clone Repository**
-    ```bash
-    git clone [https://github.com/el-choco/piperblog.git](https://github.com/el-choco/piperblog.git)
-    cd piperblog
-    ```
+1.  **Clone Repository**
+    ```bash
+    git clone [https://github.com/el-choco/piperblog.git](https://github.com/el-choco/piperblog.git)
+    cd piperblog
+    ```
 
-2.  **Run Installer**
-    Use the included installation script to set up the environment and start the containers:
-    ```bash
-    chmod +x docker-install.sh
-    ./docker-install.sh
-    ```
-    *The script automatically creates the `.env` file, builds the Docker containers, and starts them.*
+2.  **Run Installer**
+    Use the included installation script to set up the environment and start the containers:
+    *(Note: There are 4 language versions available that automatically set the default language: `docker-install.sh` (German), `docker-install-en.sh` (English), `docker-install-es.sh` (Spanish), `docker-install-fr.sh` (French))*
+    ```bash
+    chmod +x docker-install.sh
+    ./docker-install.sh
+    ```
+    *The script automatically creates the `.env` file, builds the Docker containers, and starts them.*
 
-3.  **Access Blog**
-    Once the containers are running, your blog is accessible at:
-    * **Frontend:** `http://localhost:3333` (or port according to configuration)
-    * **Admin Login:** `http://localhost:3333/admin`
+3.  **Access Blog**
+    Once the containers are running, your blog is accessible at:
+    * **Frontend:** `http://localhost:3333` (or port according to configuration)
+    * **Admin Login:** `http://localhost:3333/admin`
 
-4.  **First Login**
-    Use the default credentials to log in to the admin area:
-    * **Username:** `admin`
-    * **Password:** `admin123`
-    * *(Please change the password immediately after your first login!)*
+4.  **First Login**
+    Use the default credentials to log in to the admin area:
+    * **Username:** `admin`
+    * **Password:** `admin123`
+    * *(Please change the password immediately after your first login!)*
+
+### 🖥️ Bare Metal / Native Installation
+
+For servers without Docker (e.g., standard Linux VPS with Ubuntu/Debian/Apache), you can use the native "1-Click" installers.
+
+1.  Upload the project files to your server (e.g., `/var/www/privatecms`).
+2.  Run the script corresponding to your language as **root**:
+    * **English:** `sudo bash bare-metal-install-en.sh`
+    * **German:** `sudo bash bare-metal-install.sh`
+    * **Spanish:** `sudo bash bare-metal-install-es.sh`
+    * **French:** `sudo bash bare-metal-install-fr.sh`
+3.  The script will automatically install Apache, PHP, MySQL, configure the database, set file permissions, and create the VirtualHost.
 
 ---
 
@@ -129,6 +142,9 @@ This project is released under the MIT License. See [LICENSE](LICENSE) for detai
 
 
 ---
+---
+
+> **Der Sprung vom Blog zum CMS ist vollbracht.**
 
 # 🥧 PrivateCMS
 
@@ -187,7 +203,7 @@ PrivateCMS kommt vollgepackt mit Funktionen für Content-Ersteller und Administr
 * **Suchfunktion:** Integrierte Suchleiste, um Inhalte sofort zu finden.
 * **Paginierung:** Intelligente Seitennummerierung für einfaches Durchstöbern des Archivs.
 * **Dark Mode:** Besucher können zwischen Hell- und Dunkelmodus wechseln 🌓.
-* **Responsives Design:** Optimiert für Desktop, Tablet und Mobile.
+* **Responsive Design:** Optimiert für Desktop, Tablet und Mobile.
 * **Sidebar:** Dynamische Sidebar mit Kategorien, Tag-Cloud und neuesten Kommentaren.
 * **Back-to-Top:** Bequeme Navigation für lange Artikel und Listen.
 
@@ -204,32 +220,45 @@ PrivateCMS ist für den Betrieb mit **Docker** optimiert, was die Installation e
 * Docker & Docker Compose installiert.
 * Git (optional, zum Klonen des Repos).
 
-### Schritt-für-Schritt Anleitung
+### Schritt-für-Schritt Anleitung (Docker)
 
-1.  **Repository klonen**
-    ```bash
-    git clone [https://github.com/el-choco/piperblog.git](https://github.com/el-choco/piperblog.git)
-    cd piperblog
-    ```
+1.  **Repository klonen**
+    ```bash
+    git clone [https://github.com/el-choco/piperblog.git](https://github.com/el-choco/piperblog.git)
+    cd piperblog
+    ```
 
-2.  **Installer ausführen**
-    Nutze das beiliegende Installations-Skript, um die Umgebung einzurichten und die Container zu starten:
-    ```bash
-    chmod +x docker-install.sh
-    ./docker-install.sh
-    ```
-    *Das Skript erstellt automatisch die `.env` Datei, baut die Docker-Container und startet sie.*
+2.  **Installer ausführen**
+    Nutze das beiliegende Installations-Skript, um die Umgebung einzurichten und die Container zu starten:
+    *(Hinweis: Es stehen 4 Sprachvarianten zur Verfügung, die automatisch die Standardsprache einstellen: `docker-install.sh` (Deutsch), `docker-install-en.sh` (Englisch), `docker-install-es.sh` (Spanisch), `docker-install-fr.sh` (Französisch))*
+    ```bash
+    chmod +x docker-install.sh
+    ./docker-install.sh
+    ```
+    *Das Skript erstellt automatisch die `.env` Datei, baut die Docker-Container und startet sie.*
 
-3.  **Blog aufrufen**
-    Sobald die Container laufen, ist dein Blog erreichbar unter:
-    * **Frontend:** `http://localhost:3333` (oder Port gemäß Konfiguration)
-    * **Admin-Login:** `http://localhost:3333/admin`
+3.  **Blog aufrufen**
+    Sobald die Container laufen, ist dein Blog erreichbar unter:
+    * **Frontend:** `http://localhost:3333` (oder Port gemäß Konfiguration)
+    * **Admin-Login:** `http://localhost:3333/admin`
 
-4.  **Erste Anmeldung**
-    Nutze die Standard-Zugangsdaten für den Admin-Bereich:
-    * **Benutzer:** `admin`
-    * **Passwort:** `admin123`
-    * *(Bitte ändere das Passwort sofort nach dem ersten Login!)*
+4.  **Erste Anmeldung**
+    Nutze die Standard-Zugangsdaten für den Admin-Bereich:
+    * **Benutzer:** `admin`
+    * **Passwort:** `admin123`
+    * *(Bitte ändere das Passwort sofort nach dem ersten Login!)*
+
+### 🖥️ Bare Metal / Native Installation
+
+Für Server ohne Docker (z.B. Standard Linux VPS mit Ubuntu/Debian/Apache) stehen native "1-Klick"-Installer bereit.
+
+1.  Lade die Projektdateien auf deinen Server (z.B. nach `/var/www/privatecms`).
+2.  Führe das passende Skript für deine Sprache als **root** aus:
+    * **Deutsch:** `sudo bash bare-metal-install.sh`
+    * **Englisch:** `sudo bash bare-metal-install-en.sh`
+    * **Spanisch:** `sudo bash bare-metal-install-es.sh`
+    * **Französisch:** `sudo bash bare-metal-install-fr.sh`
+3.  Das Skript installiert automatisch Apache, PHP, MySQL, richtet die Datenbank ein, setzt Berechtigungen und erstellt den VirtualHost.
 
 ---
 

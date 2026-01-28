@@ -76,10 +76,10 @@ require_once 'header.php';
 
 <div class="content-area">
     <div style="display: flex; justify-content: center; padding-top: 20px;">
-        <div style="width: 100%; max-width: 1500px;">
+        <div style="width: 100%; max-width: 1600px;">
 
             <header style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px;">
-                <h1 style="margin:0; font-size: 1.5rem; color: #1a202c;">
+                <h1 style="margin:0; font-size: 2rem; color: #1a202c;">
                     <?= htmlspecialchars($pLang['manage_title'] ?? 'Manage Posts') ?>
                 </h1>
                 <a href="post-create.php" class="btn btn-primary" style="font-weight: bold;">

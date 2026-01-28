@@ -49,7 +49,7 @@ $languages = [
 ];
 ?>
 
-<header class="top-header">
+<header class="top-header" style="padding-left: 30px;">
     <h1><?= htmlspecialchars($t['language_settings']['title'] ?? 'Settings') ?></h1>
 </header>
 

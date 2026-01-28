@@ -36,8 +36,14 @@ if ($data && isset($data['id'])) {
             exit;
         }
 
+        $slug = trim($data['slug'] ?? '');
+        if ($slug === '') {
+            $slug = strtolower(trim(preg_replace('/[^A-Za-z0-9-]+/', '-', $data['title'])));
+        }
+
         $sql = "UPDATE posts SET 
                 title = ?, 
+                slug = ?,
                 excerpt = ?, 
                 content = ?, 
                 hero_image = ?, 
@@ -51,6 +57,7 @@ if ($data && isset($data['id'])) {
         $stmt = $pdo->prepare($sql);
         $stmt->execute([
             $data['title'],
+            $slug,
             $data['excerpt'] ?? '',
             $data['content'],
             $data['hero_image'] ?: null,
@@ -69,15 +76,15 @@ if ($data && isset($data['id'])) {
             $tagsArray = array_unique(array_filter($tagsArray)); 
 
             foreach ($tagsArray as $tagName) {
-                $slug = strtolower(trim(preg_replace('/[^A-Za-z0-9-]+/', '-', $tagName)));
-                if ($slug === '') continue;
+                $slugTag = strtolower(trim(preg_replace('/[^A-Za-z0-9-]+/', '-', $tagName)));
+                if ($slugTag === '') continue;
 
                 $stmt = $pdo->prepare("SELECT id FROM tags WHERE slug = ?");
-                $stmt->execute([$slug]);
+                $stmt->execute([$slugTag]);
                 $tagId = $stmt->fetchColumn();
 
                 if (!$tagId) {
-                    $pdo->prepare("INSERT INTO tags (name, slug) VALUES (?, ?)")->execute([$tagName, $slug]);
+                    $pdo->prepare("INSERT INTO tags (name, slug) VALUES (?, ?)")->execute([$tagName, $slugTag]);
                     $tagId = $pdo->lastInsertId();
                 }
 
@@ -101,3 +108,4 @@ if ($data && isset($data['id'])) {
         echo json_encode(['status' => 'error', 'error' => $e->getMessage()]);
     }
 }
+?>

@@ -89,7 +89,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_SESSION['user_id']) && iss
     }
 }
 
-$posts = $pdo->prepare("SELECT p.*, u.username, u.role FROM forum_posts p JOIN users u ON p.user_id = u.id WHERE p.thread_id = ? ORDER BY p.created_at ASC");
+$posts = $pdo->prepare("SELECT p.*, u.username, u.role, u.avatar FROM forum_posts p JOIN users u ON p.user_id = u.id WHERE p.thread_id = ? ORDER BY p.created_at ASC");
 $posts->execute([$thread['id']]);
 $posts = $posts->fetchAll();
 
@@ -99,13 +99,19 @@ usort($allFiles, function($a, $b) use ($uploadDir) { return filemtime($uploadDir
 
 $editModeId = isset($_GET['edit_mode']) && $isAdmin ? (int)$_GET['edit_mode'] : 0;
 
-function getAvatar($name) {
+function getAvatar($user) {
+    $name = $user['username'] ?? 'U';
+    
+    if (!empty($user['avatar'])) {
+        return '<img src="/uploads/'.htmlspecialchars($user['avatar']).'" alt="'.$name.'" class="thread-user-avatar">';
+    }
+
     $colors = ['#f56565', '#ed8936', '#ecc94b', '#48bb78', '#38b2ac', '#4299e1', '#667eea', '#9f7aea', '#ed64a6', '#a0aec0'];
     $val = 0;
     for ($i = 0; $i < strlen($name); $i++) { $val += ord($name[$i]); }
     $color = $colors[$val % count($colors)];
     $initial = strtoupper(substr($name, 0, 1));
-    return '<div style="width:64px; height:64px; background:'.$color.'; color:#fff; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:26px; font-weight:700; margin:0 auto 12px auto; box-shadow:0 3px 6px rgba(0,0,0,0.1); border:2px solid #fff;">'.$initial.'</div>';
+    return '<div class="thread-user-placeholder" style="background:'.$color.';">'.$initial.'</div>';
 }
 ?>
 <!DOCTYPE html>
@@ -181,6 +187,9 @@ function getAvatar($name) {
         .btn-act.del { color: #e53e3e; }
         .btn-act.del:hover { background: #fff5f5; }
 
+        .thread-user-avatar { width:64px; height:64px; object-fit:cover; border-radius:50%; margin:0 auto 12px auto; box-shadow:0 3px 6px rgba(0,0,0,0.1); border:2px solid var(--bg-card); display:block; }
+        .thread-user-placeholder { width:64px; height:64px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:26px; font-weight:700; margin:0 auto 12px auto; box-shadow:0 3px 6px rgba(0,0,0,0.1); border:2px solid var(--bg-card); color:#fff; }
+
         [data-theme="dark"] .editor-container { background: #2d3748; border-color: #4a5568; }
         [data-theme="dark"] .editor-toolbar { background: #1a202c; border-bottom-color: #4a5568; }
         [data-theme="dark"] .ed-btn { background: #2d3748; border-color: #4a5568; color: #e2e8f0; }
@@ -199,6 +208,11 @@ function getAvatar($name) {
         [data-theme="dark"] .icon-name { color: #a0aec0; }
         [data-theme="dark"] .icon-item:hover { background: #1a202c; }
         [data-theme="dark"] .form-input { background: #2d3748; color: #fff; border-color: #4a5568; }
+        
+        [data-theme="dark"] .post-role { background: #4a5568; color: #e2e8f0; }
+        [data-theme="dark"] .btn-act.edit:hover { background: #2d3748; }
+        [data-theme="dark"] .btn-act.del:hover { background: #742a2a; }
+        :not(pre) > code{background-color:#23241f;color:#f8f8f2;padding:2px 6px;border-radius:4px;font-family:'Fira Code',Consolas,monospace;font-size:.9em;border:1px solid #3e3d32}
     </style>
 </head>
 <body>
@@ -259,7 +273,7 @@ function getAvatar($name) {
         <?php foreach ($posts as $index => $p): ?>
             <div class="post-card" id="post-<?= $p['id'] ?>">
                 <div class="post-sidebar">
-                    <?= getAvatar($p['username']) ?>
+                    <?= getAvatar($p) ?>
                     <div style="font-weight: bold; margin-bottom: 5px;"><?= htmlspecialchars($p['username']) ?></div>
                     <span class="post-role"><?= htmlspecialchars($p['role']) ?></span>
                 </div>
@@ -287,10 +301,70 @@ function getAvatar($name) {
                     <?php if ($editModeId === (int)$p['id']): ?>
                         <form method="POST">
                             <input type="hidden" name="edit_save_id" value="<?= $p['id'] ?>">
-                            <div style="margin-bottom: 10px;">
-                                <textarea name="edit_content" class="form-input" rows="8" style="font-family:monospace; resize:vertical;"><?= htmlspecialchars($p['content']) ?></textarea>
+                            
+                            <div class="editor-container">
+                                <div class="editor-toolbar">
+                                    <div class="editor-row">
+                                        <span class="editor-label">MARKDOWN:</span>
+                                        <button type="button" class="ed-btn" onclick="insertTag('**', '**')" title="<?= htmlspecialchars($peLang['tooltip_bold'] ?? 'Bold') ?>"><b>B</b></button>
+                                        <button type="button" class="ed-btn" onclick="insertTag('*', '*')" title="<?= htmlspecialchars($peLang['tooltip_italic'] ?? 'Italic') ?>"><i>I</i></button>
+                                        <button type="button" class="ed-btn" onclick="insertTag('~~', '~~')" title="<?= htmlspecialchars($peLang['tooltip_strike'] ?? 'Strike') ?>"><s>S</s></button>
+                                        <div class="ed-sep"></div>
+                                        <button type="button" class="ed-btn" onclick="insertTag('# ', '')">H1</button>
+                                        <button type="button" class="ed-btn" onclick="insertTag('## ', '')">H2</button>
+                                        <button type="button" class="ed-btn" onclick="insertTag('### ', '')">H3</button>
+                                        <div class="ed-sep"></div>
+                                        <button type="button" class="ed-btn ico-link" onclick="insertLink()" title="<?= htmlspecialchars($peLang['tooltip_link'] ?? 'Link') ?>"></button>
+                                        <button type="button" class="ed-btn ico-img" onclick="openMediaModal()" title="<?= htmlspecialchars($peLang['tooltip_image'] ?? 'Image') ?>"></button>
+                                        <div class="ed-sep"></div>
+                                        <button type="button" class="ed-btn" onclick="insertTag('`', '`')" style="font-family:monospace;">`code`</button>
+                                        <button type="button" class="ed-btn" onclick="insertTag('```\n', '\n```')" title="<?= htmlspecialchars($peLang['tooltip_code_block'] ?? 'Code') ?>">...</button>
+                                        
+                                        <div class="ed-sep"></div>
+                                        <div style="position:relative;">
+                                            <button type="button" class="ed-btn" onclick="toggleSmileyPicker(this)" title="<?= htmlspecialchars($peLang['tooltip_emojis'] ?? 'Emojis') ?>">😀</button>
+                                            <div id="smileyPopover" class="smiley-popover">
+                                                <div id="smileyGrid" class="smiley-grid"></div>
+                                            </div>
+                                        </div>
+                                        <button type="button" class="ed-btn" onclick="openIconModal()" title="<?= htmlspecialchars($peLang['modal_icons'] ?? 'Icons') ?>"><?= htmlspecialchars($peLang['btn_fa_icons'] ?? 'FA Icons') ?></button>
+
+                                        <div class="ed-sep"></div>
+                                        <button type="button" class="ed-btn" onclick="insertTag('* ', '')"><?= htmlspecialchars($peLang['btn_list_bullet'] ?? '• List') ?></button>
+                                        <button type="button" class="ed-btn" onclick="insertTag('1. ', '')"><?= htmlspecialchars($peLang['btn_list_number'] ?? '1. List') ?></button>
+                                        <button type="button" class="ed-btn" onclick="insertTag('> ', '')">💬</button>
+                                        <button type="button" class="ed-btn" onclick="insertTag('\n---\n', '')">---</button>
+                                    </div>
+                                    <div class="editor-row">
+                                        <span class="editor-label green">HTML:</span>
+                                        <button type="button" class="ed-btn" onclick="insertTag('<div style=\'text-align:center\'>', '</div>')"><?= htmlspecialchars($peLang['btn_center'] ?? 'Center') ?></button>
+                                        <button type="button" class="ed-btn" onclick="insertTag('<div style=\'text-align:right\'>', '</div>')"><?= htmlspecialchars($peLang['btn_right'] ?? 'Right') ?></button>
+                                        <button type="button" class="ed-btn" onclick="insertTag('<div style=\'text-align:left\'>', '</div>')"><?= htmlspecialchars($peLang['btn_left'] ?? 'Left') ?></button>
+                                        <div class="ed-sep"></div>
+                                        <button type="button" class="ed-btn" onclick="document.getElementById('html-color-picker').click()"><?= htmlspecialchars($peLang['btn_color'] ?? 'Color') ?></button>
+                                        <input type="color" id="html-color-picker" style="display:none">
+                                        <button type="button" class="ed-btn" onclick="insertTag('<mark>', '</mark>')"><?= htmlspecialchars($peLang['btn_mark'] ?? 'Mark') ?></button>
+                                        <div class="ed-sep"></div>
+                                        <button type="button" class="ed-btn" onclick="insertTag('<small>', '</small>')">Small</button>
+                                        <button type="button" class="ed-btn" onclick="insertTag('<big>', '</big>')">Large</button>
+                                        <div class="ed-sep"></div>
+                                        <button type="button" class="ed-btn" onclick="insertTag('<u>', '</u>')"><u>U</u></button>
+                                        <button type="button" class="ed-btn" onclick="insertTag('<sup>', '</sup>')">x²</button>
+                                        <button type="button" class="ed-btn" onclick="insertTag('<sub>', '</sub>')">H₂O</button>
+                                        <div class="ed-sep"></div>
+                                        <button type="button" class="ed-btn" onclick="insertTag('<details><summary>Spoiler</summary>', '</details>')">👁 Spoiler</button>
+                                        <button type="button" class="ed-btn" onclick="insertTag('<br>', '')" style="background:#e7f3ff; border-color:#1877f2; color:#1877f2; font-weight:bold;">&lt;br&gt;</button>
+                                    </div>
+                                </div>
+                                <div class="editor-split">
+                                    <div class="editor-area">
+                                        <textarea name="edit_content" id="markdown-input" rows="8" style="width:100%; height:100%; border:none; padding:15px; resize:vertical; outline:none; font-family:monospace; font-size:14px; box-sizing:border-box; display:block; min-height:200px;"><?= htmlspecialchars($p['content']) ?></textarea>
+                                    </div>
+                                    <div id="preview-box" class="preview-area"></div>
+                                </div>
                             </div>
-                            <div style="text-align:right;">
+
+                            <div style="text-align:right; margin-top:10px;">
                                 <a href="?slug=<?= $thread['slug'] ?>" class="ed-btn" style="text-decoration:none; padding:8px 15px; margin-right:5px; background:#f0f2f5;"><?= htmlspecialchars($peLang['btn_close'] ?? 'Cancel') ?></a>
                                 <button type="submit" class="btn-reply" style="margin:0; font-size:0.9rem; padding:8px 15px;">
                                     <i class="fa-solid fa-check"></i> <?= htmlspecialchars($peLang['btn_save'] ?? 'Save') ?>
@@ -308,7 +382,7 @@ function getAvatar($name) {
     </div>
 
     <?php if (!empty($_SESSION['user_id'])): ?>
-        <?php if (!$thread['is_locked'] && ($_SESSION['role'] ?? '') !== 'viewer'): ?>
+        <?php if (!$thread['is_locked'] && ($_SESSION['role'] ?? '') !== 'viewer' && $editModeId === 0): ?>
             <h3 style="margin-top: 40px; color: var(--text-main);"><?= htmlspecialchars($fLang['reply'] ?? 'Reply') ?></h3>
             
             <form method="POST">
@@ -324,7 +398,7 @@ function getAvatar($name) {
                             <button type="button" class="ed-btn" onclick="insertTag('## ', '')">H2</button>
                             <button type="button" class="ed-btn" onclick="insertTag('### ', '')">H3</button>
                             <div class="ed-sep"></div>
-                            <button type="button" class="ed-btn ico-link" onclick="insertTag('[Link Text](', ')')" title="<?= htmlspecialchars($peLang['tooltip_link'] ?? 'Link') ?>"></button>
+                            <button type="button" class="ed-btn ico-link" onclick="insertLink()" title="<?= htmlspecialchars($peLang['tooltip_link'] ?? 'Link') ?>"></button>
                             <button type="button" class="ed-btn ico-img" onclick="openMediaModal()" title="<?= htmlspecialchars($peLang['tooltip_image'] ?? 'Image') ?>"></button>
                             <div class="ed-sep"></div>
                             <button type="button" class="ed-btn" onclick="insertTag('`', '`')" style="font-family:monospace;">`code`</button>
@@ -394,7 +468,7 @@ function getAvatar($name) {
 <div id="mediaModal">
     <div class="modal-content">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-            <h3 style="margin:0;"><?= htmlspecialchars($peLang['modal_media'] ?? 'Media') ?></h3>
+            <h3><?= htmlspecialchars($peLang['modal_media'] ?? 'Media') ?></h3>
             <div style="display:flex; gap:10px;">
                 <input type="file" id="uploadInput" style="display:none" onchange="uploadFile(this)">
                 <button class="ed-btn" onclick="document.getElementById('uploadInput').click()"><?= htmlspecialchars($peLang['btn_upload'] ?? 'Upload') ?></button>
@@ -436,44 +510,105 @@ include 'footer.php';
 ?>
 
 <script>
+    document.addEventListener('DOMContentLoaded', (event) => {
+        if (window.hljs) {
+            hljs.highlightAll();
+        }
+    });
+
+    const toggleBtn = document.getElementById('theme-toggle');
+    const html = document.documentElement;
+    const savedTheme = localStorage.getItem('theme') || 'light';
+    html.setAttribute('data-theme', savedTheme);
+    if (toggleBtn) { toggleBtn.addEventListener('click', () => { const current = html.getAttribute('data-theme'); const next = current === 'dark' ? 'light' : 'dark'; html.setAttribute('data-theme', next); localStorage.setItem('theme', next); }); }
+    // --------------------------------------------------------
+
     const input = document.getElementById('markdown-input');
     const preview = document.getElementById('preview-box');
     
-    function updatePreview() { 
-        if(typeof marked !== 'undefined') {
-            preview.innerHTML = marked.parse(input.value);
-            if(window.hljs) hljs.highlightAll();
+    if (input) {
+        function updatePreview() { 
+            if(typeof marked !== 'undefined') {
+                preview.innerHTML = marked.parse(input.value);
+                if(window.hljs) hljs.highlightAll();
+            }
         }
-    }
-    input.addEventListener('input', updatePreview);
+        input.addEventListener('input', updatePreview);
 
-    document.getElementById('html-color-picker').addEventListener('change', function(e) {
-        const color = e.target.value;
-        insertTag('<span style="color:' + color + '">', '</span>');
-    });
+        document.getElementById('html-color-picker').addEventListener('change', function(e) {
+            const color = e.target.value;
+            insertTag('<span style="color:' + color + '">', '</span>');
+        });
 
-    function insertTag(open, close = '') {
-        const start = input.selectionStart;
-        const end = input.selectionEnd;
-        let text = input.value.substring(start, end);
-        
-        let trailingSpace = "";
-        if (text.endsWith(" ")) {
-            text = text.trimEnd();
-            trailingSpace = " ";
+        function insertTag(open, close = '') {
+            const scrollTop = input.scrollTop; 
+            
+            const start = input.selectionStart;
+            const end = input.selectionEnd;
+            const text = input.value.substring(start, end);
+
+            const matchStart = text.match(/^\s*/);
+            const prefixWS = matchStart ? matchStart[0] : "";
+
+            const matchEnd = text.match(/\s*$/);
+            const suffixWS = matchEnd ? matchEnd[0] : "";
+
+            const coreText = text.trim();
+
+            let replacement = "";
+
+            if (coreText.length === 0) {
+                replacement = prefixWS + open + close + suffixWS;
+            } else {
+                replacement = prefixWS + open + coreText + close + suffixWS;
+            }
+
+            input.value = input.value.substring(0, start) + replacement + input.value.substring(end);
+
+            if (coreText.length === 0) {
+                const newPos = start + prefixWS.length + open.length;
+                input.focus();
+                input.setSelectionRange(newPos, newPos);
+            } else {
+                const newPos = start + replacement.length;
+                input.focus();
+                input.setSelectionRange(newPos, newPos);
+            }
+            
+            input.scrollTop = scrollTop; 
+            updatePreview();
         }
 
-        const replace = open + text + close + trailingSpace;
-        input.value = input.value.substring(0, start) + replace + input.value.substring(end);
-        
-        const newPos = start + open.length + text.length + (text.length===0?0:close.length);
-        input.focus();
-        input.setSelectionRange(newPos, newPos);
-        updatePreview();
+        function insertLink() {
+            if (!input) return;
+            const scrollTop = input.scrollTop;
+            const start = input.selectionStart;
+            const end = input.selectionEnd;
+            let text = input.value.substring(start, end);
+
+            let url = prompt("<?= htmlspecialchars($peLang['prompt_url'] ?? 'Enter URL:') ?>", "https://");
+            if (url === null) return;
+
+            let label = text.length > 0 ? text : "<?= htmlspecialchars($peLang['default_link_text'] ?? 'Link Text') ?>";
+            const replacement = `[${label}](${url})`;
+
+            input.value = input.value.substring(0, start) + replacement + input.value.substring(end);
+            
+            const newPos = start + replacement.length;
+            input.focus();
+            input.setSelectionRange(newPos, newPos);
+            input.scrollTop = scrollTop;
+            updatePreview();
+        }
     }
 
     function openMediaModal() { document.getElementById('mediaModal').style.display='flex'; }
-    function selectImage(f) { insertTag(`\n![Image](/uploads/${f})\n`); document.getElementById('mediaModal').style.display='none'; }
+    function selectImage(f) { 
+        if(input) { 
+            insertTag(`\n![Image](/uploads/${f})\n`); 
+            document.getElementById('mediaModal').style.display='none'; 
+        }
+    }
     
     function uploadFile(el) {
         if(el.files.length===0) return;
@@ -496,13 +631,19 @@ include 'footer.php';
         el.value='';
     }
 
-    const smileys = ["😀","😃","😄","😁","😆","😅","😂","🤣","😊","😇","🙂","🙃","😉","😌","😍","🥰","😘","😗","😙","😚","😋","😛","😝","😜","🤪","🤨","🧐","🤓","😎","🤩","🥳","😏","😒","😞","😔","😟","😕","🙁","☹️","😣","😖","😫","😩","🥺","😢","😭","😤","😠","😡","🤬","🤯","😳","🥵","🥶","😱","😨","😰","😥","😓","🤗","🤔","🤭","🤫","🤥","😶","😐","😑","😬","🙄","😯","😦","😧","😮","😲","🥱","😴","🤤","😪","😵","🤐","🥴","🤢","🤮","🤧","😷","🤒","🤕","🤑","🤠","😈","👿","👹","👺","🤡","💩","👻","💀","👽","👾","🤖","🎃","😺","😸","😹","😻","😼","😼","😽","🙀","😿","𘘾","🤲","👐","🙌","👏","🤝","👍","👎","👊","✊","🤛","🤜","🤞","✌️","🤟","🤘","👌","🤏","👈","👉","👆","👇","☝️","✋","🤚","🖐","🖖","👋","🤙","💪","🧠","🦷","🦴","👀","👁","👄","💋","🦶","🦵","👃","👂","🦻","👣","🔥","💥","✨","🌟","💫","❤️","🧡","💛","💚","💙","💜","🖤","🤍","🤎","💔","❣️","💕","💞","💓","💗","💖","💘","💝","💟"];
+    const smileys = ["😀","😃","😄","😁","😆","😅","😂","🤣","😊","😇","🙂","🙃","😉","😌","😍","🥰","😘","😗","😙","😚","😋","😛","😝","😜","🤪","🤨","🧐","🤓","😎","🤩","🥳","😏","😒","😞","😔","😟","😕","🙁","☹️","😣","😖","😫","😩","🥺","😢","😭","😤","😠","😡","🤬","🤯","😳","🥵","🥶","😱","😨","😰","😥","🤗","🤔","🤭","🤫","🤥","😶","😐","😑","😬","🙄","😯","😦","😧","😮","😲","🥱","😴","🤤","😪","😵","🤐","🥴","🤢","🤮","🤧","😷","🤒","🤕","🤑","🤠","😈","👿","👹","👺","🤡","💩","👻","💀","👽","👾","🤖","🎃","😺","😸","😹","😻","😼","😼","😽","🙀","😿","𘘾","🤲","👐","🙌","👏","🤝","👍","👎","👊","✊","🤛","🤜","🤞","✌️","🤟","🤘","👌","🤏","👈","👉","👆","👇","☝️","✋","🤚","🖐","🖖","👋","🤙","💪","🧠","🦷","🦴","👀","👁","👄","💋","🦶","🦵","👃","👂","🦻","👣","🔥","💥","✨","🌟","💫","❤️","🧡","💛","💚","💙","💜","🖤","🤍","🤎","💔","❣️","💕","💞","💓","💗","💖","💘","💝","💟"];
     const smGrid = document.getElementById('smileyGrid');
-    smileys.forEach(s=>{
-        const sp = document.createElement('span'); sp.className='smiley-item'; sp.innerText=s;
-        sp.onclick=()=>{ insertTag(s); document.getElementById('smileyPopover').style.display='none'; };
-        smGrid.appendChild(sp);
-    });
+    
+    if (smGrid) {
+        smileys.forEach(s=>{
+            const sp = document.createElement('span'); sp.className='smiley-item'; sp.innerText=s;
+            sp.onclick=()=>{ 
+                if(input) { insertTag(s); document.getElementById('smileyPopover').style.display='none'; }
+            };
+            smGrid.appendChild(sp);
+        });
+    }
+
     function toggleSmileyPicker(btn) {
         const p = document.getElementById('smileyPopover');
         if(p.style.display==='block') p.style.display='none';
@@ -511,30 +652,30 @@ include 'footer.php';
 
     const icons = ["fa-solid fa-user", "fa-regular fa-user", "fa-solid fa-users", "fa-solid fa-user-plus", "fa-solid fa-house", "fa-solid fa-magnifying-glass", "fa-solid fa-bars", "fa-solid fa-envelope", "fa-regular fa-envelope", "fa-solid fa-heart", "fa-regular fa-heart", "fa-solid fa-star", "fa-regular fa-star", "fa-solid fa-check", "fa-solid fa-xmark", "fa-solid fa-image", "fa-solid fa-video", "fa-solid fa-camera", "fa-solid fa-download", "fa-solid fa-upload", "fa-solid fa-share", "fa-solid fa-thumbs-up", "fa-solid fa-thumbs-down", "fa-solid fa-comment", "fa-solid fa-pen", "fa-solid fa-trash", "fa-solid fa-gear", "fa-solid fa-folder", "fa-solid fa-file", "fa-solid fa-code", "fa-solid fa-terminal", "fa-solid fa-bug", "fa-solid fa-database", "fa-solid fa-cloud", "fa-solid fa-wifi", "fa-solid fa-desktop", "fa-solid fa-mobile", "fa-brands fa-facebook", "fa-brands fa-twitter", "fa-brands fa-instagram", "fa-brands fa-github", "fa-brands fa-discord", "fa-brands fa-youtube", "fa-brands fa-docker", "fa-brands fa-php", "fa-brands fa-js", "fa-brands fa-html5", "fa-brands fa-css3", "fa-brands fa-python", "fa-brands fa-linux", "fa-brands fa-windows", "fa-brands fa-apple", "fa-brands fa-android", "fa-brands fa-google"];
     const icGrid = document.getElementById('iconGrid');
-    function renderIcons(flt='') {
-        icGrid.innerHTML=''; const l=flt.toLowerCase();
-        icons.forEach(c=>{
-            if(c.toLowerCase().includes(l)) {
-                const d=document.createElement('div'); d.className='icon-item';
-                d.innerHTML=`<i class="${c}"></i><div style="font-size:9px;overflow:hidden;width:100%">${c.replace('fa-solid fa-','')}</div>`;
-                d.onclick=()=>{ insertTag(`<i class="${c}"></i>`); document.getElementById('iconModal').style.display='none'; };
-                icGrid.appendChild(d);
-            }
-        });
+    
+    if (icGrid) {
+        function renderIcons(flt='') {
+            icGrid.innerHTML=''; const l=flt.toLowerCase();
+            icons.forEach(c=>{
+                if(c.toLowerCase().includes(l)) {
+                    const d=document.createElement('div'); d.className='icon-item';
+                    d.innerHTML=`<i class="${c}"></i><div style="font-size:9px;overflow:hidden;width:100%">${c.replace('fa-solid fa-','')}</div>`;
+                    d.onclick=()=>{ 
+                        if(input) { insertTag(`<i class="${c}"></i>`); document.getElementById('iconModal').style.display='none'; }
+                    };
+                    icGrid.appendChild(d);
+                }
+            });
+        }
+        function openIconModal(){ document.getElementById('iconModal').style.display='flex'; renderIcons(); document.getElementById('iconSearch').focus(); }
+        function filterIcons(){ renderIcons(document.getElementById('iconSearch').value); }
     }
-    function openIconModal(){ document.getElementById('iconModal').style.display='flex'; renderIcons(); document.getElementById('iconSearch').focus(); }
-    function filterIcons(){ renderIcons(document.getElementById('iconSearch').value); }
 
     function toggleLang() { document.getElementById('langMenu').classList.toggle('show'); }
     window.addEventListener('click', function(e) { 
         if (!document.getElementById('langDropdown').contains(e.target)) document.getElementById('langMenu').classList.remove('show'); 
-        if (!e.target.closest('button') && !document.getElementById('smileyPopover').contains(e.target)) document.getElementById('smileyPopover').style.display='none';
+        if (!e.target.closest('button') && document.getElementById('smileyPopover') && !document.getElementById('smileyPopover').contains(e.target)) document.getElementById('smileyPopover').style.display='none';
     });
-    const toggleBtn = document.getElementById('theme-toggle');
-    const html = document.documentElement;
-    const savedTheme = localStorage.getItem('theme') || 'light';
-    html.setAttribute('data-theme', savedTheme);
-    if (toggleBtn) { toggleBtn.addEventListener('click', () => { const current = html.getAttribute('data-theme'); const next = current === 'dark' ? 'light' : 'dark'; html.setAttribute('data-theme', next); localStorage.setItem('theme', next); }); }
 </script>
 </body>
 </html>

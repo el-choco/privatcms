@@ -35,7 +35,7 @@ try {
 include 'header.php'; 
 ?>
 
-<header class="top-header">
+<header class="top-header" style="margin: 0px 30px">
     <h1><?= htmlspecialchars($t['dashboard']['overview'] ?? 'Dashboard') ?></h1>
 </header>
 

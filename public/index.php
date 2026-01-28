@@ -100,7 +100,7 @@ $countStmt->execute($params);
 $totalPosts = (int)$countStmt->fetchColumn();
 $totalPages = (int)ceil($totalPosts / $limit);
 
-$sql = 'SELECT DISTINCT p.id, p.title, p.slug, p.excerpt, p.hero_image, p.created_at, p.is_sticky, c.name AS category, u.username AS author_name ' . 
+$sql = 'SELECT DISTINCT p.id, p.title, p.slug, p.excerpt, p.hero_image, p.created_at, p.is_sticky, c.name AS category, c.color AS category_color, u.username AS author_name ' . 
         $sqlBase . $where . 
         ' ORDER BY p.is_sticky DESC, p.created_at DESC LIMIT ' . $limit . ' OFFSET ' . $offset;
 
@@ -135,6 +135,21 @@ function buildUrl($newPage) {
   <link rel="icon" type="image/x-icon" href="/favicon.ico">
   <link href="/assets/styles/main.css" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/monokai-sublime.min.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
+  
+  <style>
+    .comm-list { display: block !important; gap: 0 !important; }
+    .comm-item { 
+        padding: 12px 0; 
+        border-bottom: 1px solid var(--border); 
+        display: flex; 
+        flex-direction: column; 
+        gap: 4px;
+    }
+    .comm-item:last-child { border-bottom: none; }
+    :not(pre) > code{background-color:#23241f;color:#f8f8f2;padding:2px 6px;border-radius:4px;font-family:'Fira Code',Consolas,monospace;font-size:.9em;border:1px solid #3e3d32}
+  </style>
 </head>
 <body>
   
@@ -168,7 +183,7 @@ function buildUrl($newPage) {
                         <div class="post-card__content">
                             <div class="post-card__meta">
                             <?php if (!empty($p['is_sticky'])): ?><span class="badge-sticky"><?= htmlspecialchars($t['sticky']) ?></span><?php endif; ?>
-                            <?php if (!empty($p['category'])): ?><span class="badge"><?= htmlspecialchars($p['category']) ?></span><?php endif; ?>
+                            <?php if (!empty($p['category'])): ?><span class="cat-badge" style="background-color: <?= htmlspecialchars($p['category_color'] ?? '#3182ce') ?>"><?= htmlspecialchars($p['category']) ?></span><?php endif; ?>
                             <span class="date"><?= date($t['date_format'], strtotime($p['created_at'])) ?></span>
                             <span class="author">
                                 • <?= htmlspecialchars($t['by']) ?> 

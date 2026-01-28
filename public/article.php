@@ -42,18 +42,17 @@ $i18n = I18n::fromConfig($ini, $_GET['lang'] ?? null);
 $db  = new Database($ini['database'] ?? []);
 $pdo = $db->pdo();
 
-// UPDATE: SLUG SUPPORT
 $slug = $_GET['slug'] ?? null;
 $id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
 $post = false;
 
 if ($slug) {
-    $stmt = $pdo->prepare('SELECT p.*, c.name as category_name, u.username as author_name FROM posts p LEFT JOIN categories c ON p.category_id = c.id LEFT JOIN users u ON p.author_id = u.id WHERE p.slug=? AND p.status="published"');
+    $stmt = $pdo->prepare('SELECT p.*, c.name as category_name, c.color as category_color, u.username as author_name FROM posts p LEFT JOIN categories c ON p.category_id = c.id LEFT JOIN users u ON p.author_id = u.id WHERE p.slug=? AND p.status="published"');
     $stmt->execute([$slug]);
     $post = $stmt->fetch();
     if ($post) $id = $post['id']; 
 } elseif ($id > 0) {
-    $stmt = $pdo->prepare('SELECT p.*, c.name as category_name, u.username as author_name FROM posts p LEFT JOIN categories c ON p.category_id = c.id LEFT JOIN users u ON p.author_id = u.id WHERE p.id=? AND p.status="published"');
+    $stmt = $pdo->prepare('SELECT p.*, c.name as category_name, c.color as category_color, u.username as author_name FROM posts p LEFT JOIN categories c ON p.category_id = c.id LEFT JOIN users u ON p.author_id = u.id WHERE p.id=? AND p.status="published"');
     $stmt->execute([$id]);
     $post = $stmt->fetch();
 }
@@ -136,7 +135,18 @@ $languages = [
   <link href="/assets/styles/main.css" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/monokai-sublime.min.css">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-
+  <style>
+    .comm-list { display: block !important; gap: 0 !important; }
+    .comm-item { 
+        padding: 12px 0; 
+        border-bottom: 1px solid var(--border); 
+        display: flex; 
+        flex-direction: column; 
+        gap: 4px;
+    }
+    .comm-item:last-child { border-bottom: none; }
+    :not(pre) > code{background-color:#23241f;color:#f8f8f2;padding:2px 6px;border-radius:4px;font-family:'Fira Code',Consolas,monospace;font-size:.9em;border:1px solid #3e3d32}
+  </style>
 </head>
 <body>
 
@@ -153,18 +163,18 @@ $languages = [
                     <span>• <?= htmlspecialchars($t_by) ?> <strong><?= htmlspecialchars($post['author_name'] ?? 'Admin') ?></strong></span>
                     <span>👁️ <?= number_format((int)($post['views'] ?? 0)) ?> <?= htmlspecialchars($t['stat_views']) ?></span>
                     <?php if ($post['category_name']): ?>
-                        <span class="cat-badge"><?= htmlspecialchars($post['category_name']) ?></span>
+                        <span class="cat-badge" style="background-color: <?= htmlspecialchars($post['category_color'] ?? '#3182ce') ?>"><?= htmlspecialchars($post['category_name']) ?></span>
                     <?php endif; ?>
                 </div>
                 <h1 style="font-size: 2.5rem; margin: 0 0 20px 0; color: inherit;"><?= htmlspecialchars($post['title']) ?></h1>
               </header>
               
               <?php if (!empty($post['hero_image'])): ?>
-                <img src="/uploads/<?= htmlspecialchars($post['hero_image']) ?>" style="width:100%; height:auto; border-radius:8px; margin-bottom:20px;">
+                <img src="/uploads/<?= htmlspecialchars($post['hero_image']) ?>"style="display: block; margin: auto; width: 75%;">
               <?php endif; ?>
 
               <?php if (!empty($post['excerpt'])): ?>
-                <div class="article-teaser">
+                <div class="article-teaser" style="text-align: center;text-decoration: underline;margin-top: 50px;margin-bottom: 50px;">
                     <?= nl2br(htmlspecialchars($post['excerpt'])) ?>
                 </div>
               <?php endif; ?>

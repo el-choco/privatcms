@@ -66,6 +66,10 @@
 .content-image {
     cursor: zoom-in;
     transition: 0.3s;
+    max-width: 75%;
+    max-height: 75%;
+    border-radius: 8px;
+    margin: 50px 300px 50px 300px;
 }
 
 .content-image:hover {

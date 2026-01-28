@@ -11,13 +11,11 @@ require_once __DIR__ . '/../src/App/Database.php';
 $ini = parse_ini_file(__DIR__ . '/../config/config.ini', true, INI_SCANNER_TYPED) ?: [];
 $pdo = (new App\Database($ini['database'] ?? []))->pdo();
 
-// Sprachdateien laden
 $currentLang = $_SESSION['lang'] ?? 'de';
 $langFile = __DIR__ . '/../config/lang/' . $currentLang . '.ini';
 $t_temp = file_exists($langFile) ? parse_ini_file($langFile, true) : [];
 $mLang = $t_temp['messages'] ?? [];
 
-// Aktionen (Löschen / Gelesen markieren)
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (isset($_POST['delete_id'])) {
         $stmt = $pdo->prepare("DELETE FROM messages WHERE id = ?");
@@ -32,12 +30,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         
         $stmt = $pdo->prepare("UPDATE messages SET is_read = ? WHERE id = ?");
         $stmt->execute([$newStatus, $id]);
-        header("Location: messages.php"); // Refresh um Status zu zeigen
+        header("Location: messages.php"); 
         exit;
     }
 }
 
-// Nachrichten abrufen (Neueste zuerst)
 $stmt = $pdo->query("SELECT * FROM messages ORDER BY created_at DESC");
 $messages = $stmt->fetchAll();
 
@@ -46,25 +43,19 @@ require_once 'header.php';
 
 <style>
     .msg-list { display: flex; flex-direction: column; gap: 15px; }
-    .msg-card { 
-        background: white; border: 1px solid #e2e8f0; border-radius: 8px; padding: 20px; 
-        transition: box-shadow 0.2s, border-color 0.2s; position: relative;
-    }
+    .msg-card { background: white; border: 1px solid #e2e8f0; border-radius: 8px; padding: 20px; transition: box-shadow 0.2s, border-color 0.2s; position: relative; }
     .msg-card.unread { border-left: 5px solid #3182ce; background: #ebf8ff; }
     .msg-card:hover { box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
 
-    .msg-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 15px; }
+    .msg-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 15px; border: 1px solid grey; border-radius: 8px; padding: 9px; }
     .msg-sender { font-weight: 600; font-size: 1.1rem; color: #2d3748; }
     .msg-email { font-size: 0.9rem; color: #718096; }
     .msg-date { font-size: 0.85rem; color: #a0aec0; white-space: nowrap; }
 
-    .msg-subject { font-weight: 700; margin-bottom: 10px; color: #2b6cb0; }
-    .msg-content { color: #4a5568; line-height: 1.6; white-space: pre-wrap; font-size: 0.95rem; }
+    .msg-subject { font-weight: 700; margin-bottom: 10px; color: #2b6cb0; border: 1px solid grey; border-radius: 8px; padding: 9px; }
+    .msg-content { color: #4a5568; line-height: 1.6; white-space: pre-wrap; font-size: 0.95rem;border: 1px solid grey; border-radius: 8px; padding: 51px 0px 5px 9px; }
 
-    .msg-actions { 
-        margin-top: 20px; padding-top: 15px; border-top: 1px solid #edf2f7; 
-        display: flex; gap: 10px; justify-content: flex-end;
-    }
+    .msg-actions { margin-top: 20px; padding-top: 15px; border-top: 1px solid #edf2f7; display: flex; gap: 10px; justify-content: flex-end; }
     
     .badge-new { background: #3182ce; color: white; padding: 2px 8px; border-radius: 12px; font-size: 0.7rem; text-transform: uppercase; font-weight: bold; vertical-align: middle; margin-left: 10px; }
     
@@ -74,9 +65,10 @@ require_once 'header.php';
     .btn-delete:hover { background: #fff5f5; border-color: #e53e3e; }
     .btn-reply { background: #3182ce; border-color: #3182ce; color: white; }
     .btn-reply:hover { background: #2b6cb0; }
+    :not(pre) > code{background-color:#23241f;color:#f8f8f2;padding:2px 6px;border-radius:4px;font-family:'Fira Code',Consolas,monospace;font-size:.9em;border:1px solid #3e3d32}
 </style>
 
-<div class="admin-content">
+<div class="admin-content" style="margin: 0px 30px;">
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:25px;">
         <h1 style="margin:0;"><?= htmlspecialchars($mLang['title'] ?? 'Posteingang') ?></h1>
         <div style="background:#e2e8f0; padding:5px 15px; border-radius:20px; font-weight:bold; color:#4a5568;">

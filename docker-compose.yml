@@ -1,4 +1,3 @@
-version: "3.9"
 services:
   web:
     build:
@@ -14,7 +13,7 @@ services:
       - ./admin:/var/www/html/admin
       - ./src:/var/www/html/src
       - ./config:/var/www/html/config
-      - ./uploads:/var/www/html/uploads
+      - ./uploads:/var/www/html/public/uploads
       - ./app:/var/www/html/app
     depends_on:
       - db

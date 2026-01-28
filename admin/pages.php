@@ -22,12 +22,12 @@ include 'header.php';
 ?>
 
 <div class="content-area" style="margin: 30px 30px 30px 30px;">    
-    <div style="display:flex; justify-content:space-between; align-items:center; margin: 60px 70px 20px 70px;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin: 20px 10px 20px 15px;">
         <h1 style="margin:0;"><?= htmlspecialchars($t['pages']['title'] ?? 'Pages') ?></h1>
         <a href="page-edit.php" class="btn btn-primary">+ <?= htmlspecialchars($t['pages']['create_new'] ?? 'New Page') ?></a>
     </div>
 
-    <div class="card" style="margin: 30px 50px 30px 49px; border-top: 5px solid #3182ce;">
+    <div class="card" style="border-top: 5px solid #3182ce;">
         <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
             <thead>
                 <tr style="text-align: left; background: #f7fafc; border-bottom: 2px solid #edf2f7;">

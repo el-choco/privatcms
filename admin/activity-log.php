@@ -71,7 +71,7 @@ require_once 'header.php';
         <div style="width: 100%; max-width: 1500px;">
             <header style="margin-bottom: 30px; display:flex; justify-content:space-between; align-items:flex-end;">
                 <div>
-                    <h1 style="margin:0; font-size: 1.5rem; color: #1a202c;">
+                    <h1 style="margin:0; font-size: 2rem; color: #1a202c;">
                         <?= htmlspecialchars($lLang['title'] ?? 'Activity Log') ?>
                     </h1>
                     <p style="color: #718096; margin-top: 5px;">

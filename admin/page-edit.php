@@ -13,7 +13,6 @@ $t = file_exists($langFile) ? parse_ini_file($langFile, true) : [];
 $peLang = $t['post_edit'] ?? []; 
 $pgLang = $t['pages'] ?? [];
 
-// Bilder laden
 $uploadDir = __DIR__ . '/../public/uploads/';
 $allFiles = is_dir($uploadDir) ? array_diff(scandir($uploadDir), ['.', '..']) : [];
 usort($allFiles, function($a, $b) use ($uploadDir) {
@@ -68,57 +67,42 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         .editor-layout { display: grid; grid-template-columns: 1fr 320px; gap: 20px; height: calc(100vh - 120px); }
         .editor-main-card { display: flex; flex-direction: column; background: #fff; border-radius: 8px; border: 1px solid #ddd; overflow: hidden; }
         .sidebar-card { background: #fff; border-radius: 8px; border: 1px solid #ddd; padding: 20px; display: flex; flex-direction: column; gap: 15px; overflow-y: auto; }
-        
         .editor-split { display: flex; flex: 1; overflow: hidden; }
         .editor-area, .preview-area { flex: 1; padding: 15px; overflow-y: auto; }
         .editor-area { border-right: 1px solid #ddd; }
         textarea { width: 100%; height: 100%; border: none; outline: none; font-family: monospace; resize: none; font-size: 14px; }
-        
-        #mediaModal { display: none; position: fixed; z-index: 10000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); align-items: center; justify-content: center; }
+        #mediaModal, #iconModal { display: none; position: fixed; z-index: 10000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); align-items: center; justify-content: center; }
         .modal-content { background: white; padding: 20px; border-radius: 12px; width: 80%; max-width: 900px; max-height: 80vh; overflow-y: auto; display: flex; flex-direction: column; }
-        .media-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 15px; margin-top: 15px; overflow-y: auto; }
-        .media-item { cursor: pointer; border: 2px solid transparent; border-radius: 6px; overflow: hidden; transition: 0.2s; text-align: center; background: #f8fafc; padding: 5px; position: relative; }
-        .media-item:hover { border-color: #3182ce; transform: scale(1.05); }
-        .media-item img { width: 100%; height: 100px; object-fit: cover; display: block; border-radius: 4px; }
-        .media-item .file-icon { font-size: 3rem; line-height: 100px; height: 100px; }
-
+        .media-grid, .icon-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 10px; margin-top: 15px; overflow-y: auto; }
+        .media-item, .icon-item { cursor: pointer; border: 1px solid #eee; border-radius: 6px; padding: 5px; text-align: center; background: #f8fafc; transition: all 0.2s; }
+        .media-item:hover, .icon-item:hover { border-color: #3182ce; transform: scale(1.05); }
+        .media-item img { width: 100%; height: 80px; object-fit: cover; border-radius: 4px; }
+        .media-item .file-icon { font-size: 2.5rem; line-height: 80px; height: 80px; }
         #page-title { width: 100%; padding: 15px; font-size: 18px; font-weight: bold; border: none; border-bottom: 1px solid #eee; outline: none; box-sizing: border-box; background: #fff; }
-
         .preview-area pre { background: #23241f; color: #f8f8f2; padding: 1em; border-radius: 6px; overflow-x: auto; }
         .preview-area code { font-family: 'Fira Code', Consolas, monospace; font-size: 14px; }
         .preview-area img { max-width: 100%; }
-
         .editor-toolbar { background: #f8fafc; border-bottom: 1px solid #cbd5e0; padding: 10px; font-family: sans-serif; }
         .editor-row { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; flex-wrap: wrap; }
         .editor-row:last-child { margin-bottom: 0; }
-        
         .editor-label { font-weight: 800; color: #1877f2; width: 90px; font-size: 11px; text-transform: uppercase; flex-shrink: 0; }
         .editor-label.green { color: #42b72a; }
-
         .ed-btn { background: #fff; border: 1px solid #ddd; border-radius: 6px; padding: 5px 10px; font-size: 13px; cursor: pointer; color: #444; display: inline-flex; align-items: center; justify-content: center; min-width: 30px; transition: all 0.2s; font-weight: 500; }
         .ed-btn:hover { background: #f0f2f5; border-color: #bbb; color: #000; }
         .ed-sep { width: 1px; height: 20px; background: #eee; margin: 0 5px; }
-        
         .ico-img::before { content: "🖼️"; font-size:12px; }
         .ico-link::before { content: "🔗"; font-size:12px; }
-
         .smiley-popover { display: none; position: absolute; background: #fff; border: 1px solid #ccc; border-radius: 8px; padding: 10px; width: 300px; height: 250px; overflow-y: auto; box-shadow: 0 4px 15px rgba(0,0,0,0.2); z-index: 1000; }
         .smiley-grid { display: grid; grid-template-columns: repeat(8, 1fr); gap: 5px; }
         .smiley-item { cursor: pointer; font-size: 20px; text-align: center; padding: 5px; border-radius: 4px; }
         .smiley-item:hover { background: #f0f2f5; }
-
-        #iconModal { display: none; position: fixed; z-index: 10001; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); align-items: center; justify-content: center; }
         .icon-search-bar { width: 100%; padding: 10px; margin-bottom: 15px; border: 1px solid #ddd; border-radius: 6px; box-sizing: border-box; font-size: 16px; }
-        .icon-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(60px, 1fr)); gap: 10px; max-height: 60vh; overflow-y: auto; }
-        .icon-item { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 10px; border: 1px solid #eee; border-radius: 6px; cursor: pointer; transition: all 0.2s; }
-        .icon-item:hover { background: #e7f3ff; border-color: #1877f2; color: #1877f2; }
-        .icon-item i { font-size: 24px; margin-bottom: 5px; }
         .icon-name { font-size: 10px; color: #666; text-align: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; width: 100%; }
-        
         .form-label { font-weight: bold; font-size: 12px; display: block; margin-bottom: 5px; color: #4a5568; }
         .form-control { width: 100%; padding: 8px; border: 1px solid #e2e8f0; border-radius: 6px; box-sizing: border-box; font-size: 14px; }
         .checkbox-group { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
         .checkbox-group label { cursor: pointer; font-size: 13px; color: #2d3748; }
+        :not(pre) > code{background-color:#23241f;color:#f8f8f2;padding:2px 6px;border-radius:4px;font-family:'Fira Code',Consolas,monospace;font-size:.9em;border:1px solid #3e3d32}
     </style>
 </head>
 <body class="admin-layout">
@@ -138,7 +122,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <form method="POST" id="pageForm" class="editor-layout">
             
             <div class="editor-main-card">
-                <input type="text" id="page-title" name="title" value="<?= htmlspecialchars($page['title']) ?>" placeholder="<?= htmlspecialchars($t['common']['title'] ?? 'Title') ?>" required oninput="if(!this.form.slug.value) this.form.slug.value = this.value.toLowerCase().replace(/[^a-z0-9-]+/g, '-').replace(/^-+|-+$/g, '');">
+                <input type="text" id="page-title" name="title" value="<?= htmlspecialchars($page['title']) ?>" placeholder="<?= htmlspecialchars($t['common']['title'] ?? 'Title') ?>" required>
 
                 <div class="editor-toolbar">
                     <div class="editor-row">
@@ -151,7 +135,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         <button type="button" class="ed-btn" onclick="insertTag('## ', '')">H2</button>
                         <button type="button" class="ed-btn" onclick="insertTag('### ', '')">H3</button>
                         <div class="ed-sep"></div>
-                        <button type="button" class="ed-btn ico-link" onclick="insertTag('[Link Text](', ')')" title="<?= htmlspecialchars($peLang['tooltip_link'] ?? 'Link') ?>"></button>
+                        <button type="button" class="ed-btn ico-link" onclick="insertLink()" title="<?= htmlspecialchars($peLang['tooltip_link'] ?? 'Link') ?>"></button>
                         <button type="button" class="ed-btn ico-img" onclick="openMediaModal('content')" title="<?= htmlspecialchars($peLang['tooltip_image'] ?? 'Image') ?>"></button>
                         <div class="ed-sep"></div>
                         <button type="button" class="ed-btn" onclick="insertTag('`', '`')" style="font-family:monospace;">`code`</button>
@@ -176,7 +160,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         <button type="button" class="ed-btn" onclick="insertTag('<div style=\'text-align:right\'>', '</div>')"><?= htmlspecialchars($peLang['btn_right'] ?? 'Right') ?></button>
                         <button type="button" class="ed-btn" onclick="insertTag('<div style=\'text-align:left\'>', '</div>')"><?= htmlspecialchars($peLang['btn_left'] ?? 'Left') ?></button>
                         <div class="ed-sep"></div>
-                        <button type="button" class="ed-btn" onclick="insertTag('<span style=\'color:red\'>', '</span>')"><?= htmlspecialchars($peLang['btn_color'] ?? 'Color') ?></button>
+                        <button type="button" class="ed-btn" onclick="document.getElementById('html-color-picker').click()"><?= htmlspecialchars($peLang['btn_color'] ?? 'Color') ?></button>
+                        <input type="color" id="html-color-picker" style="display:none">
+                        
                         <button type="button" class="ed-btn" onclick="insertTag('<mark>', '</mark>')"><?= htmlspecialchars($peLang['btn_mark'] ?? 'Mark') ?></button>
                         <div class="ed-sep"></div>
                         <button type="button" class="ed-btn" onclick="insertTag('<small>', '</small>')">Small</button>
@@ -214,7 +200,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 
                 <div class="form-group">
                     <label class="form-label">Slug (URL)</label>
-                    <input type="text" name="slug" class="form-control" value="<?= htmlspecialchars($page['slug']) ?>">
+                    <input type="text" id="page-slug" name="slug" class="form-control" value="<?= htmlspecialchars($page['slug']) ?>">
+                    <div style="text-align: right; margin-top: 2px;">
+                        <small style="color:#1877f2; font-size:11px; cursor:pointer; text-decoration:underline;" onclick="generateSlugFromTitle()">
+                            <?= htmlspecialchars($peLang['btn_gen_slug'] ?? 'Generate') ?>
+                        </small>
+                    </div>
                 </div>
 
                 <hr style="margin: 15px 0; border: 0; border-top: 1px solid #eee;">
@@ -282,6 +273,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     const preview = document.getElementById('preview-box');
     const msgUploaded = "<?= htmlspecialchars($peLang['msg_uploaded'] ?? 'File uploaded successfully.') ?>";
     const errorUpload = "<?= htmlspecialchars($peLang['error_upload'] ?? 'Upload failed.') ?>";
+    const txtEnterUrl = "<?= htmlspecialchars($peLang['prompt_url'] ?? 'Enter URL:') ?>";
+    const txtLinkDefault = "<?= htmlspecialchars($peLang['default_link_text'] ?? 'Link Text') ?>";
+    const txtNetworkError = "<?= htmlspecialchars($peLang['error_network'] ?? 'Network Error') ?>";
 
     function updatePreview() { 
         preview.innerHTML = marked.parse(input.value);
@@ -290,15 +284,52 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     input.addEventListener('input', updatePreview);
     setTimeout(updatePreview, 100);
 
+    function generateSlugFromTitle() {
+        const title = document.getElementById('page-title').value;
+        const slug = title.toLowerCase().replace(/ä/g, 'ae').replace(/ö/g, 'oe').replace(/ü/g, 'ue').replace(/ß/g, 'ss').replace(/[^a-z0-9\s-]/g, '').trim().replace(/\s+/g, '-');
+        document.getElementById('page-slug').value = slug;
+    }
+
+    document.getElementById('page-slug').addEventListener('input', function(e) {
+        this.value = this.value.toLowerCase().replace(/[^a-z0-9-]/g, '');
+    });
+
+    document.getElementById('html-color-picker').addEventListener('change', function(e) {
+        insertTag('<span style="color:' + e.target.value + '">', '</span>');
+    });
+
     function insertTag(open, close = '') {
         if (!input) return;
         const start = input.selectionStart;
         const end = input.selectionEnd;
         const scrollTop = input.scrollTop;
-        const selectedText = input.value.substring(start, end);
-        const replacement = open + selectedText + close;
+        let text = input.value.substring(start, end);
+        let trailingSpace = "";
+        if (text.length > 0 && text.endsWith(" ")) {
+            text = text.trimEnd();
+            trailingSpace = " ";
+        }
+        const replacement = open + text + close + trailingSpace;
         input.value = input.value.substring(0, start) + replacement + input.value.substring(end);
-        const newPos = start + open.length + selectedText.length + (selectedText.length === 0 ? 0 : close.length);
+        const newPos = start + open.length + text.length + (text.length === 0 ? 0 : close.length);
+        input.focus();
+        input.setSelectionRange(newPos, newPos);
+        input.scrollTop = scrollTop;
+        updatePreview();
+    }
+
+    function insertLink() {
+        if (!input) return;
+        const scrollTop = input.scrollTop;
+        const start = input.selectionStart;
+        const end = input.selectionEnd;
+        let text = input.value.substring(start, end);
+        let url = prompt(txtEnterUrl, "https://");
+        if (url === null) return;
+        let label = text.length > 0 ? text : txtLinkDefault;
+        const replacement = `[${label}](${url})`;
+        input.value = input.value.substring(0, start) + replacement + input.value.substring(end);
+        const newPos = start + replacement.length;
         input.focus();
         input.setSelectionRange(newPos, newPos);
         input.scrollTop = scrollTop;
@@ -347,7 +378,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         })
         .catch(err => {
             statusDiv.style.color = 'red';
-            statusDiv.innerText = "Network Error";
+            statusDiv.innerText = txtNetworkError;
         });
         inputElement.value = ''; 
     }

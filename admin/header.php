@@ -2,10 +2,8 @@
 declare(strict_types=1);
 if (session_status() === PHP_SESSION_NONE) session_start();
 
-// 1. Check: Ist überhaupt jemand eingeloggt?
 if (empty($_SESSION['admin'])) { header('Location: /admin/login.php'); exit; }
 
-// 2. Check: Member und Viewer haben hier nichts verloren -> Raus zur Startseite!
 $role = $_SESSION['admin']['role'] ?? '';
 if ($role === 'member' || $role === 'viewer') {
     header('Location: /'); 
@@ -69,7 +67,7 @@ $isAdmin = $userRole === 'admin';
         .btn-danger { background: #e53e3e; color: #fff; } .btn-danger:hover { background: #c53030; }
         
         table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-        th { text-align: left; padding: 12px 15px; background: #f7fafc; color: #4a5568; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 1px solid #e2e8f0; }
+        th { text-align: center; padding: 12px 15px; background: #f7fafc; color: #4a5568; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 1px solid #e2e8f0; }
         td { padding: 15px; border-bottom: 1px solid #e2e8f0; color: #2d3748; vertical-align: middle; }
         tr:hover td { background: #f8fafc; }
         
@@ -77,6 +75,7 @@ $isAdmin = $userRole === 'admin';
         .form-label { display: block; margin-bottom: 8px; font-weight: 600; color: #4a5568; font-size: 0.9rem; }
         .form-control { width: 100%; padding: 10px; border: 1px solid #e2e8f0; border-radius: 6px; box-sizing: border-box; font-size: 14px; }
         .form-control:focus { border-color: #3182ce; outline: none; box-shadow: 0 0 0 3px rgba(66, 153, 225, 0.2); }
+        :not(pre) > code{background-color:#23241f;color:#f8f8f2;padding:2px 6px;border-radius:4px;font-family:'Fira Code',Consolas,monospace;font-size:.9em;border:1px solid #3e3d32}
     </style>
 </head>
 <body>
@@ -94,33 +93,37 @@ $isAdmin = $userRole === 'admin';
             
             <a href="posts.php" class="nav-item <?= in_array($cur, ['posts.php', 'post-create.php', 'post-edit.php']) ? 'active' : '' ?>">
                 <i class="fa-solid fa-pen-nib"></i> <?= htmlspecialchars($t['posts']['title'] ?? 'Posts') ?>
-            </a>
-            
-            <a href="pages.php" class="nav-item <?= in_array($cur, ['pages.php', 'page-edit.php']) ? 'active' : '' ?>">
-                <i class="fa-solid fa-file-lines"></i> <?= htmlspecialchars($t['pages']['title'] ?? 'Pages') ?>
-            </a>
-
-            <a href="menus.php" class="nav-item <?= $cur === 'menus.php' ? 'active' : '' ?>">
-                <i class="fa-solid fa-bars"></i> <?= htmlspecialchars($t['menu']['title'] ?? 'Menu') ?>
-            </a>
+            </a>            
 
             <a href="files.php" class="nav-item <?= $cur === 'files.php' ? 'active' : '' ?>">
                 <i class="fa-solid fa-folder-open"></i> <?= htmlspecialchars($t['files']['title'] ?? 'Files') ?>
-            </a>
-
-            <a href="forums.php" class="nav-item <?= $cur === 'forums.php' ? 'active' : '' ?>">
-                <i class="fa-solid fa-comments"></i> <?= htmlspecialchars($t['forum']['title'] ?? 'Forum') ?>
             </a>
             
             <?php if ($isAdmin): ?>
                 <div class="nav-label">Management</div>
                 
+                <a href="pages.php" class="nav-item <?= in_array($cur, ['pages.php', 'page-edit.php']) ? 'active' : '' ?>">
+                    <i class="fa-solid fa-file-lines"></i> <?= htmlspecialchars($t['pages']['title'] ?? 'Pages') ?>
+                </a>
+
+                <a href="menus.php" class="nav-item <?= $cur === 'menus.php' ? 'active' : '' ?>">
+                    <i class="fa-solid fa-bars"></i> <?= htmlspecialchars($t['menu']['title'] ?? 'Menu') ?>
+                </a>
+
                 <a href="categories.php" class="nav-item <?= $cur === 'categories.php' ? 'active' : '' ?>">
                     <i class="fa-solid fa-tags"></i> <?= htmlspecialchars($t['categories']['title'] ?? 'Categories') ?>
                 </a>
 
+                <a href="forums.php" class="nav-item <?= $cur === 'forums.php' ? 'active' : '' ?>">
+                    <i class="fa-solid fa-comments"></i> <?= htmlspecialchars($t['forum']['title'] ?? 'Forum') ?>
+                </a>
+
+                <a href="forum-posts.php" class="nav-item <?= in_array($cur, ['forum-posts.php', 'forum-post-edit.php']) ? 'active' : '' ?>">
+                    <i class="fa-solid fa-layer-group"></i> <?= htmlspecialchars($t['forum_manage']['title'] ?? 'Forum Posts') ?>
+                </a>
+
                 <a href="forum-labels.php" class="nav-item <?= $cur === 'forum-labels.php' ? 'active' : '' ?>">
-                    <i class="fa-solid fa-tag"></i> <?= htmlspecialchars($t['forum']['labels'] ?? 'Forum Labels') ?>
+                    <i class="fa-solid fa-tag"></i> <?= htmlspecialchars($t['forum_labels']['title'] ?? 'Forum Labels') ?>
                 </a>
                 
                 <a href="comments.php" class="nav-item <?= $cur === 'comments.php' ? 'active' : '' ?>">

@@ -10,30 +10,23 @@ $pdo = (new App\Database($ini['database'] ?? []))->pdo();
 $currentLang = $_SESSION['lang'] ?? 'de';
 $langFile = __DIR__ . '/../config/lang/' . $currentLang . '.ini';
 $t_temp = file_exists($langFile) ? parse_ini_file($langFile, true) : [];
-$peLang = $t_temp['post_edit'] ?? [];
-
-$currentUser = $_SESSION['admin'];
-$isAdmin = ($currentUser['role'] ?? 'viewer') === 'admin';
-$currentUserId = (int)$currentUser['id'];
+$fteLang = $t_temp['forum_thread_edit'] ?? [];
 
 $id = (int)($_GET['id'] ?? 0);
-$stmt = $pdo->prepare("SELECT * FROM posts WHERE id = ?");
+
+$stmt = $pdo->prepare("SELECT * FROM forum_threads WHERE id = ?");
 $stmt->execute([$id]);
-$data = $stmt->fetch();
+$thread = $stmt->fetch();
 
-if (!$data) { die($peLang['error_not_found'] ?? 'Post not found.'); }
+if (!$thread) { die($fteLang['error_thread_not_found'] ?? 'Thread not found.'); }
 
-$isOwner = (int)($data['author_id'] ?? 0) === $currentUserId;
-if (!$isAdmin && !$isOwner) {
-    header('Location: posts.php');
-    exit;
-}
+$stmtPost = $pdo->prepare("SELECT content FROM forum_posts WHERE thread_id = ? ORDER BY created_at ASC LIMIT 1");
+$stmtPost->execute([$id]);
+$firstPost = $stmtPost->fetch();
+$content = $firstPost['content'] ?? '';
 
-$categories = $pdo->query("SELECT * FROM categories ORDER BY name ASC")->fetchAll();
-
-$tagsStmt = $pdo->prepare("SELECT t.name FROM tags t JOIN post_tags pt ON t.id = pt.tag_id WHERE pt.post_id = ?");
-$tagsStmt->execute([$id]);
-$currentTags = implode(', ', $tagsStmt->fetchAll(PDO::FETCH_COLUMN));
+$boards = $pdo->query("SELECT id, title FROM forum_boards ORDER BY sort_order ASC")->fetchAll();
+$labels = $pdo->query("SELECT id, title FROM forum_labels ORDER BY sort_order ASC")->fetchAll();
 
 $uploadDir = __DIR__ . '/../public/uploads/';
 $allFiles = is_dir($uploadDir) ? array_diff(scandir($uploadDir), ['.', '..']) : [];
@@ -45,62 +38,47 @@ usort($allFiles, function($a, $b) use ($uploadDir) {
 <html lang="<?= htmlspecialchars($currentLang) ?>">
 <head>
     <meta charset="utf-8">
-    <title><?= htmlspecialchars($peLang['title_prefix'] ?? 'Editor -') ?> <?= htmlspecialchars($data['title']) ?></title>
-    <link rel="icon" type="image/x-icon" href="/favicon.ico">
+    <title><?= htmlspecialchars($fteLang['title_prefix'] ?? 'Forum Editor -') ?> <?= htmlspecialchars($thread['title']) ?></title>
     <link href="/admin/assets/styles/admin.css" rel="stylesheet">
-    
+    <link rel="icon" type="image/x-icon" href="/favicon.ico">
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-    
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/monokai-sublime.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/dockerfile.min.js"></script>
-
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-
     <style>
         .editor-layout { display: grid; grid-template-columns: 1fr 320px; gap: 20px; height: calc(100vh - 120px); }
         .editor-main-card { display: flex; flex-direction: column; background: #fff; border-radius: 8px; border: 1px solid #ddd; overflow: hidden; }
         .sidebar-card { background: #fff; border-radius: 8px; border: 1px solid #ddd; padding: 20px; display: flex; flex-direction: column; gap: 15px; overflow-y: auto; }
-        
         .editor-split { display: flex; flex: 1; overflow: hidden; }
         .editor-area, .preview-area { flex: 1; padding: 15px; overflow-y: auto; }
         .editor-area { border-right: 1px solid #ddd; }
         textarea { width: 100%; height: 100%; border: none; outline: none; font-family: monospace; resize: none; font-size: 14px; }
-        
-        #mediaModal { display: none; position: fixed; z-index: 10000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); align-items: center; justify-content: center; }
+        #mediaModal, #iconModal { display: none; position: fixed; z-index: 10000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); align-items: center; justify-content: center; }
         .modal-content { background: white; padding: 20px; border-radius: 12px; width: 80%; max-width: 900px; max-height: 80vh; overflow-y: auto; display: flex; flex-direction: column; }
-        .media-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 15px; margin-top: 15px; overflow-y: auto; }
-        .media-item { cursor: pointer; border: 2px solid transparent; border-radius: 6px; overflow: hidden; transition: 0.2s; text-align: center; background: #f8fafc; padding: 5px; position: relative; }
-        .media-item:hover { border-color: #3182ce; transform: scale(1.05); }
-        .media-item img { width: 100%; height: 100px; object-fit: cover; display: block; border-radius: 4px; }
-        .media-item .file-icon { font-size: 3rem; line-height: 100px; height: 100px; }
-
-        #post-title{width:100%;padding:15px;font-size:18px;font-weight:700;border:none;border-bottom:1px solid #eee;outline:none;box-sizing:border-box;background:#fff}
-        .preview-area pre{background:#23241f;color:#f8f8f2;padding:1em;border-radius:6px;overflow-x:auto}
-        .preview-area code{font-family:'Fira Code',Consolas,monospace;font-size:14px}
-        .editor-toolbar{background:#f8fafc;border-bottom:1px solid #cbd5e0;padding:10px;font-family:sans-serif}
-        .editor-row{display:flex;align-items:center;gap:6px;margin-bottom:8px;flex-wrap:wrap}
-        .editor-row:last-child{margin-bottom:0}
-        .editor-label{font-weight:800;color:#1877f2;width:90px;font-size:11px;text-transform:uppercase;flex-shrink:0}
-        .editor-label.green{color:#42b72a}
-        .ed-btn{background:#fff;border:1px solid #ddd;border-radius:6px;padding:5px 10px;font-size:13px;cursor:pointer;color:#444;display:inline-flex;align-items:center;justify-content:center;min-width:30px;transition:all .2s;font-weight:500}
-        .ed-btn:hover{background:#f0f2f5;border-color:#bbb;color:#000}
-        .ed-sep{width:1px;height:20px;background:#eee;margin:0 5px}
-        .ico-img::before{content:"🖼️";font-size:12px}
-        .ico-link::before{content:"🔗";font-size:12px}
-        .smiley-popover{display:none;position:absolute;background:#fff;border:1px solid #ccc;border-radius:8px;padding:10px;width:300px;height:250px;overflow-y:auto;box-shadow:0 4px 15px #0003;z-index:1000}
-        .smiley-grid{display:grid;grid-template-columns:repeat(8,1fr);gap:5px}
-        .smiley-item{cursor:pointer;font-size:20px;text-align:center;padding:5px;border-radius:4px}        .smiley-item:hover { background: #f0f2f5; }
-
-        #iconModal { display: none; position: fixed; z-index: 10001; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); align-items: center; justify-content: center; }
+        .media-grid, .icon-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 10px; margin-top: 15px; overflow-y: auto; }
+        .media-item, .icon-item { cursor: pointer; border: 1px solid #eee; border-radius: 6px; padding: 5px; text-align: center; background: #f8fafc; transition: all 0.2s; }
+        .media-item:hover, .icon-item:hover { border-color: #3182ce; transform: scale(1.05); }
+        .media-item img { width: 100%; height: 80px; object-fit: cover; border-radius: 4px; }
+        .media-item .file-icon { font-size: 2.5rem; line-height: 80px; height: 80px; }
+        #thread-title { width: 100%; padding: 15px; font-size: 18px; font-weight: bold; border: none; border-bottom: 1px solid #eee; outline: none; background: #fff; box-sizing: border-box; }
+        .preview-area pre { background: #23241f; color: #f8f8f2; padding: 1em; border-radius: 6px; overflow-x: auto; }
+        .preview-area code { font-family: 'Fira Code', Consolas, monospace; font-size: 14px; }
+        .editor-toolbar { background: #f8fafc; border-bottom: 1px solid #cbd5e0; padding: 10px; font-family: sans-serif; }
+        .editor-row { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; flex-wrap: wrap; }
+        .editor-row:last-child { margin-bottom: 0; }
+        .editor-label { font-weight: 800; color: #1877f2; width: 90px; font-size: 11px; text-transform: uppercase; flex-shrink: 0; }
+        .editor-label.green { color: #42b72a; }
+        .ed-btn { background: #fff; border: 1px solid #ddd; border-radius: 6px; padding: 5px 10px; font-size: 13px; cursor: pointer; color: #444; display: inline-flex; align-items: center; justify-content: center; min-width: 30px; transition: all .2s; font-weight: 500; }
+        .ed-btn:hover { background: #f0f2f5; border-color: #bbb; color: #000; }
+        .ed-sep { width: 1px; height: 20px; background: #eee; margin: 0 5px; }
+        .ico-img::before { content: "🖼️"; font-size: 12px; }
+        .ico-link::before { content: "🔗"; font-size: 12px; }
+        .smiley-popover { display: none; position: absolute; background: #fff; border: 1px solid #ccc; border-radius: 8px; padding: 10px; width: 300px; height: 250px; overflow-y: auto; box-shadow: 0 4px 15px #0003; z-index: 1000; }
+        .smiley-grid { display: grid; grid-template-columns: repeat(8, 1fr); gap: 5px; }
+        .smiley-item { cursor: pointer; font-size: 20px; text-align: center; padding: 5px; border-radius: 4px; }
+        .smiley-item:hover { background: #f0f2f5; }
+        .input { width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; }
         .icon-search-bar { width: 100%; padding: 10px; margin-bottom: 15px; border: 1px solid #ddd; border-radius: 6px; box-sizing: border-box; font-size: 16px; }
-        .icon-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(60px, 1fr)); gap: 10px; max-height: 60vh; overflow-y: auto; }
-        .icon-item {
-            display: flex; flex-direction: column; align-items: center; justify-content: center;
-            padding: 10px; border: 1px solid #eee; border-radius: 6px; cursor: pointer; transition: all 0.2s;
-        }
-        .icon-item:hover { background: #e7f3ff; border-color: #1877f2; color: #1877f2; }
-        .icon-item i { font-size: 24px; margin-bottom: 5px; }
         .icon-name { font-size: 10px; color: #666; text-align: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; width: 100%; }
         :not(pre) > code{background-color:#23241f;color:#f8f8f2;padding:2px 6px;border-radius:4px;font-family:'Fira Code',Consolas,monospace;font-size:.9em;border:1px solid #3e3d32}
     </style>
@@ -109,9 +87,9 @@ usort($allFiles, function($a, $b) use ($uploadDir) {
     <aside class="admin-sidebar">
         <h2 class="brand"><?= htmlspecialchars($ini['app']['name'] ?? 'Admin') ?></h2>
         <nav>
-            <a href="/admin/posts.php"><?= htmlspecialchars($peLang['back_btn'] ?? 'Back') ?></a>
+            <a href="/admin/forum-posts.php"><?= htmlspecialchars($fteLang['back_btn'] ?? 'Back') ?></a>
             <div style="margin-top: 20px; padding: 0 15px;">
-                <button id="save-btn" class="btn btn-primary" style="width: 100%;"><?= htmlspecialchars($peLang['save_btn'] ?? 'Save') ?></button>
+                <button id="save-btn" class="btn btn-primary" style="width: 100%;"><?= htmlspecialchars($fteLang['save_btn'] ?? 'Save') ?></button>
             </div>
         </nav>
     </aside>
@@ -119,56 +97,54 @@ usort($allFiles, function($a, $b) use ($uploadDir) {
     <main class="admin-content">
         <div class="editor-layout">
             <div class="editor-main-card">
-                
-                <input type="text" id="post-title" value="<?= htmlspecialchars($data['title']) ?>" placeholder="<?= htmlspecialchars($peLang['title_placeholder'] ?? '') ?>">
+                <input type="text" id="thread-title" value="<?= htmlspecialchars($thread['title']) ?>" placeholder="<?= htmlspecialchars($fteLang['title_placeholder'] ?? '') ?>">
 
                 <div class="editor-toolbar">
                     <div class="editor-row">
-                        <span class="editor-label"><?= htmlspecialchars($peLang['label_markdown'] ?? 'Markdown:') ?></span>
-                        <button type="button" class="ed-btn" onclick="insertTag('**', '**')" title="<?= htmlspecialchars($peLang['tooltip_bold'] ?? 'Bold') ?>"><b>B</b></button>
-                        <button type="button" class="ed-btn" onclick="insertTag('*', '*')" title="<?= htmlspecialchars($peLang['tooltip_italic'] ?? 'Italic') ?>"><i>I</i></button>
-                        <button type="button" class="ed-btn" onclick="insertTag('~~', '~~')" title="<?= htmlspecialchars($peLang['tooltip_strike'] ?? 'Strike') ?>"><s>S</s></button>
+                        <span class="editor-label"><?= htmlspecialchars($fteLang['label_markdown'] ?? 'Markdown:') ?></span>
+                        <button type="button" class="ed-btn" onclick="insertTag('**', '**')" title="<?= htmlspecialchars($fteLang['tooltip_bold'] ?? 'Bold') ?>"><b>B</b></button>
+                        <button type="button" class="ed-btn" onclick="insertTag('*', '*')" title="<?= htmlspecialchars($fteLang['tooltip_italic'] ?? 'Italic') ?>"><i>I</i></button>
+                        <button type="button" class="ed-btn" onclick="insertTag('~~', '~~')" title="<?= htmlspecialchars($fteLang['tooltip_strike'] ?? 'Strike') ?>"><s>S</s></button>
                         <div class="ed-sep"></div>
                         <button type="button" class="ed-btn" onclick="insertTag('# ', '')">H1</button>
                         <button type="button" class="ed-btn" onclick="insertTag('## ', '')">H2</button>
                         <button type="button" class="ed-btn" onclick="insertTag('### ', '')">H3</button>
                         <div class="ed-sep"></div>
                         
-                        <button type="button" class="ed-btn ico-link" onclick="insertLink()" title="<?= htmlspecialchars($peLang['tooltip_link'] ?? 'Link') ?>"></button>
-                        
-                        <button type="button" class="ed-btn ico-img" onclick="openMediaModal('content')" title="<?= htmlspecialchars($peLang['tooltip_image'] ?? 'Image') ?>"></button>
+                        <button type="button" class="ed-btn ico-link" onclick="insertLink()" title="<?= htmlspecialchars($fteLang['tooltip_link'] ?? 'Link') ?>"></button>
+                        <button type="button" class="ed-btn ico-img" onclick="openMediaModal()" title="<?= htmlspecialchars($fteLang['tooltip_image'] ?? 'Image') ?>"></button>
                         <div class="ed-sep"></div>
                         <button type="button" class="ed-btn" onclick="insertTag('`', '`')" style="font-family:monospace;">`code`</button>
-                        <button type="button" class="ed-btn" onclick="insertTag('```\n', '\n```')" title="<?= htmlspecialchars($peLang['tooltip_code_block'] ?? 'Code') ?>">...</button>
+                        <button type="button" class="ed-btn" onclick="insertTag('```\n', '\n```')" title="<?= htmlspecialchars($fteLang['tooltip_code_block'] ?? 'Code') ?>">...</button>
                         
                         <div class="ed-sep"></div>
                         <div style="position:relative;">
-                            <button type="button" class="ed-btn" onclick="toggleSmileyPicker(this)" title="<?= htmlspecialchars($peLang['tooltip_emojis'] ?? 'Emojis') ?>">😀</button>
+                            <button type="button" class="ed-btn" onclick="toggleSmileyPicker(this)" title="<?= htmlspecialchars($fteLang['tooltip_emojis'] ?? 'Emojis') ?>">😀</button>
                             <div id="smileyPopover" class="smiley-popover">
                                 <div id="smileyGrid" class="smiley-grid"></div>
                             </div>
                         </div>
-                        <button type="button" class="ed-btn" onclick="openIconModal()" title="<?= htmlspecialchars($peLang['modal_icons'] ?? 'Icons') ?>"><?= htmlspecialchars($peLang['btn_fa_icons'] ?? 'FA Icons') ?></button>
+                        <button type="button" class="ed-btn" onclick="openIconModal()" title="<?= htmlspecialchars($fteLang['modal_icons'] ?? 'Icons') ?>"><?= htmlspecialchars($fteLang['btn_fa_icons'] ?? 'FA Icons') ?></button>
 
                         <div class="ed-sep"></div>
-                        <button type="button" class="ed-btn" onclick="insertTag('* ', '')"><?= htmlspecialchars($peLang['btn_list_bullet'] ?? '• List') ?></button>
-                        <button type="button" class="ed-btn" onclick="insertTag('1. ', '')"><?= htmlspecialchars($peLang['btn_list_number'] ?? '1. List') ?></button>
+                        <button type="button" class="ed-btn" onclick="insertTag('* ', '')"><?= htmlspecialchars($fteLang['btn_list_bullet'] ?? '• List') ?></button>
+                        <button type="button" class="ed-btn" onclick="insertTag('1. ', '')"><?= htmlspecialchars($fteLang['btn_list_number'] ?? '1. List') ?></button>
                         <button type="button" class="ed-btn" onclick="insertTag('> ', '')">💬</button>
                         <button type="button" class="ed-btn" onclick="insertTag('\n---\n', '')">---</button>
                     </div>
                     <div class="editor-row">
-                        <span class="editor-label green"><?= htmlspecialchars($peLang['label_html'] ?? 'HTML:') ?></span>
-                        <button type="button" class="ed-btn" onclick="insertTag('<div style=\'text-align:center\'>', '</div>')"><?= htmlspecialchars($peLang['btn_center'] ?? 'Center') ?></button>
-                        <button type="button" class="ed-btn" onclick="insertTag('<div style=\'text-align:right\'>', '</div>')"><?= htmlspecialchars($peLang['btn_right'] ?? 'Right') ?></button>
-                        <button type="button" class="ed-btn" onclick="insertTag('<div style=\'text-align:left\'>', '</div>')"><?= htmlspecialchars($peLang['btn_left'] ?? 'Left') ?></button>
+                        <span class="editor-label green"><?= htmlspecialchars($fteLang['label_html'] ?? 'HTML:') ?></span>
+                        <button type="button" class="ed-btn" onclick="insertTag('<div style=\'text-align:center\'>', '</div>')"><?= htmlspecialchars($fteLang['btn_center'] ?? 'Center') ?></button>
+                        <button type="button" class="ed-btn" onclick="insertTag('<div style=\'text-align:right\'>', '</div>')"><?= htmlspecialchars($fteLang['btn_right'] ?? 'Right') ?></button>
+                        <button type="button" class="ed-btn" onclick="insertTag('<div style=\'text-align:left\'>', '</div>')"><?= htmlspecialchars($fteLang['btn_left'] ?? 'Left') ?></button>
                         <div class="ed-sep"></div>
                         
                         <button type="button" class="ed-btn" onclick="document.getElementById('html-color-picker').click()">
-                            <?= htmlspecialchars($peLang['btn_color'] ?? 'Color') ?>
+                            <?= htmlspecialchars($fteLang['btn_color'] ?? 'Color') ?>
                         </button>
                         <input type="color" id="html-color-picker" style="display:none">
                         
-                        <button type="button" class="ed-btn" onclick="insertTag('<mark>', '</mark>')"><?= htmlspecialchars($peLang['btn_mark'] ?? 'Mark') ?></button>
+                        <button type="button" class="ed-btn" onclick="insertTag('<mark>', '</mark>')"><?= htmlspecialchars($fteLang['btn_mark'] ?? 'Mark') ?></button>
                         <div class="ed-sep"></div>
                         <button type="button" class="ed-btn" onclick="insertTag('<small>', '</small>')">Small</button>
                         <button type="button" class="ed-btn" onclick="insertTag('<big>', '</big>')">Large</button>
@@ -184,83 +160,56 @@ usort($allFiles, function($a, $b) use ($uploadDir) {
 
                 <div class="editor-split">
                     <div class="editor-area">
-                        <textarea id="markdown-input" spellcheck="false"><?= htmlspecialchars($data['content']) ?></textarea>
+                        <textarea id="markdown-input" spellcheck="false"><?= htmlspecialchars($content) ?></textarea>
                     </div>
-                    <div id="preview-box" class="preview-area article-body"></div>
+                    <div id="preview-box" class="preview-area"></div>
                 </div>
             </div>
 
             <div class="sidebar-card">
+                <h3 style="margin-top:0; font-size:14px; text-transform:uppercase; color:#666;"><?= htmlspecialchars($fteLang['label_settings'] ?? 'Settings') ?></h3>
+                
                 <div>
-                    <label style="font-weight: bold; font-size: 12px;"><?= htmlspecialchars($peLang['label_status'] ?? 'Status') ?></label>
-                    <select id="post-status" class="input">
-                        <option value="draft" <?= $data['status'] === 'draft' ? 'selected' : '' ?>><?= htmlspecialchars($peLang['status_draft'] ?? 'Draft') ?></option>
-                        <option value="published" <?= $data['status'] === 'published' ? 'selected' : '' ?>><?= htmlspecialchars($peLang['status_published'] ?? 'Published') ?></option>
-                    </select>
-                </div>
-
-                <div style="margin-top: 15px;">
-                    <label style="font-weight: bold; font-size: 12px;"><?= htmlspecialchars($peLang['label_slug'] ?? 'SEO URL (Slug)') ?></label>
-                    <input type="text" id="post-slug" class="input" value="<?= htmlspecialchars($data['slug'] ?? '') ?>" placeholder="<?= htmlspecialchars($peLang['placeholder_slug'] ?? 'my-article-slug') ?>">
-                    <div style="text-align: right; margin-top: 2px;">
-                        <small style="color:#1877f2; font-size:11px; cursor:pointer; text-decoration:underline;" onclick="generateSlugFromTitle()">
-                            <?= htmlspecialchars($peLang['btn_gen_slug'] ?? 'Generate') ?>
-                        </small>
-                    </div>
-                </div>
-
-                <div style="display: flex; align-items: center; gap: 10px; margin-top: 15px;">
-                    <input type="checkbox" id="post-sticky" <?= ($data['is_sticky'] ?? 0) ? 'checked' : '' ?>>
-                    <label for="post-sticky" style="font-weight: bold; font-size: 12px; cursor: pointer;"><?= htmlspecialchars($peLang['label_sticky'] ?? 'Pin post') ?></label>
-                </div>
-
-                <div style="border-top: 1px solid #eee; padding-top: 15px; margin-top: 10px;">
-                    <label style="font-weight: bold; font-size: 12px;"><?= htmlspecialchars($peLang['label_excerpt'] ?? 'Excerpt') ?></label>
-                    <small style="display:block; color:#666; margin-bottom:5px;"><?= htmlspecialchars($peLang['hint_excerpt'] ?? '') ?></small>
-                    <textarea id="post-excerpt" class="input" rows="4" style="resize:vertical; min-height:80px; font-family:inherit; width: 100%; box-sizing: border-box; padding: 8px; border: 1px solid #cbd5e0; border-radius: 6px;"><?= htmlspecialchars($data['excerpt'] ?? '') ?></textarea>
-                </div>
-
-                <hr style="margin: 15px 0; border: 0; border-top: 1px solid #eee;">
-
-                <div>
-                    <label style="font-weight: bold; font-size: 12px;"><?= htmlspecialchars($peLang['label_category'] ?? 'Category') ?></label>
-                    <select id="post-category" class="input">
-                        <option value=""><?= htmlspecialchars($peLang['opt_no_category'] ?? 'No Category') ?></option>
-                        <?php foreach($categories as $cat): ?>
-                            <option value="<?= $cat['id'] ?>" <?= $cat['id'] == $data['category_id'] ? 'selected' : '' ?>>
-                                <?= htmlspecialchars($cat['name']) ?>
+                    <label style="font-weight:bold; font-size:12px;"><?= htmlspecialchars($fteLang['label_board'] ?? 'Forum Board') ?></label>
+                    <select id="board-id" class="input">
+                        <?php foreach($boards as $b): ?>
+                            <option value="<?= $b['id'] ?>" <?= $b['id'] == $thread['board_id'] ? 'selected' : '' ?>>
+                                <?= htmlspecialchars($b['title']) ?>
                             </option>
                         <?php endforeach; ?>
                     </select>
                 </div>
 
-                <div style="margin-top: 15px;">
-                    <label style="font-weight: bold; font-size: 12px;"><?= htmlspecialchars($peLang['label_tags'] ?? 'Tags') ?></label>
-                    <small style="display:block; color:#666; margin-bottom:5px;"><?= htmlspecialchars($peLang['hint_tags'] ?? 'Comma separated') ?></small>
-                    <input type="text" id="post-tags" class="input" value="<?= htmlspecialchars($currentTags) ?>" placeholder="<?= htmlspecialchars($peLang['placeholder_tags'] ?? 'Linux, Docker...') ?>">
+                <div style="margin-top:10px;">
+                    <label style="font-weight:bold; font-size:12px;"><?= htmlspecialchars($fteLang['label_label'] ?? 'Label') ?></label>
+                    <select id="label-id" class="input">
+                        <option value="0"><?= htmlspecialchars($fteLang['no_label'] ?? 'No Label') ?></option>
+                        <?php foreach($labels as $l): ?>
+                            <option value="<?= $l['id'] ?>" <?= $l['id'] == $thread['label_id'] ? 'selected' : '' ?>>
+                                <?= htmlspecialchars($l['title']) ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
                 </div>
 
-                <div>
-                    <label style="font-weight: bold; font-size: 12px;"><?= htmlspecialchars($peLang['label_hero'] ?? 'Hero Image') ?></label>
-                    <div style="display: flex; gap: 5px; margin-top: 5px;">
-                        <input type="text" id="hero-image" class="input" value="<?= htmlspecialchars($data['hero_image'] ?? '') ?>" placeholder="<?= htmlspecialchars($peLang['placeholder_image'] ?? 'image.jpg') ?>">
-                        <button class="btn" onclick="openMediaModal('hero')"> <?= htmlspecialchars($peLang['btn_select'] ?? 'Select') ?> </button>
-                    </div>
-                    <div id="hero-preview" style="margin-top: 10px; height: 100px; background: #f1f5f9; border-radius: 6px; display: flex; align-items: center; justify-content: center; overflow: hidden;">
-                        <?php if($data['hero_image']): ?>
-                            <img src="/uploads/<?= htmlspecialchars($data['hero_image']) ?>" style="width: 100%; height: 100%; object-fit: cover;">
-                        <?php else: ?>
-                            <span style="color: #94a3b8; font-size: 12px;"><?= htmlspecialchars($peLang['no_image'] ?? 'No Image') ?></span>
-                        <?php endif; ?>
-                    </div>
+                <div style="margin-top:10px;">
+                    <label style="font-weight:bold; font-size:12px;"><?= htmlspecialchars($fteLang['label_slug'] ?? 'Slug') ?></label>
+                    <input type="text" id="thread-slug" class="input" value="<?= htmlspecialchars($thread['slug']) ?>">
+                    <small style="color:#3182ce; cursor:pointer;" onclick="generateSlug()"><?= htmlspecialchars($fteLang['hint_slug_auto'] ?? 'Auto generate') ?></small>
                 </div>
 
-                <div>
-                    <label style="font-weight: bold; font-size: 12px;"><?= htmlspecialchars($peLang['label_download'] ?? 'Download File') ?></label>
-                    <div style="display: flex; gap: 5px; margin-top: 5px;">
-                        <input type="text" id="download-file" class="input" value="<?= htmlspecialchars($data['download_file'] ?? '') ?>" placeholder="<?= htmlspecialchars($peLang['placeholder_file'] ?? 'file.zip') ?>">
-                        <button class="btn" onclick="openMediaModal('download')"> <?= htmlspecialchars($peLang['btn_select'] ?? 'Select') ?> </button>
-                    </div>
+                <div style="margin-top:15px; border-top:1px solid #eee; padding-top:10px;">
+                    <label style="display:flex; align-items:center; gap:8px;">
+                        <input type="checkbox" id="thread-sticky" <?= $thread['is_sticky'] ? 'checked' : '' ?>> 
+                        <?= htmlspecialchars($fteLang['label_sticky'] ?? 'Pin Thread') ?>
+                    </label>
+                </div>
+                
+                <div style="margin-top:5px;">
+                    <label style="display:flex; align-items:center; gap:8px;">
+                        <input type="checkbox" id="thread-locked" <?= $thread['is_locked'] ? 'checked' : '' ?>> 
+                        <?= htmlspecialchars($fteLang['label_locked'] ?? 'Lock Thread') ?>
+                    </label>
                 </div>
             </div>
         </div>
@@ -268,14 +217,14 @@ usort($allFiles, function($a, $b) use ($uploadDir) {
 
     <div id="mediaModal">
         <div class="modal-content">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-                <h3 style="margin: 0;"><?= htmlspecialchars($peLang['modal_media'] ?? 'Media') ?></h3>
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                <h3 style="margin:0;"><?= htmlspecialchars($fteLang['modal_media'] ?? 'Media') ?></h3>
                 <div style="display:flex; gap:10px;">
                     <input type="file" id="uploadInput" style="display:none" onchange="uploadFile(this)">
-                    <button class="btn" onclick="document.getElementById('uploadInput').click()" style="background:#e7f3ff; color:#1877f2; border-color:#bee3f8;">
-                        <?= htmlspecialchars($peLang['btn_upload'] ?? 'Upload') ?>
+                    <button class="ed-btn" onclick="document.getElementById('uploadInput').click()" style="background:#e7f3ff; color:#1877f2; border-color:#bee3f8;">
+                        <?= htmlspecialchars($fteLang['btn_upload'] ?? 'Upload') ?>
                     </button>
-                    <button class="btn" onclick="closeMediaModal()"><?= htmlspecialchars($peLang['btn_close'] ?? 'Close') ?></button>
+                    <button class="ed-btn" onclick="closeMediaModal()"><?= htmlspecialchars($fteLang['btn_close'] ?? 'Close') ?></button>
                 </div>
             </div>
             <div id="uploadStatus" style="font-size: 12px; margin-bottom: 10px; display:none;"></div>
@@ -286,7 +235,7 @@ usort($allFiles, function($a, $b) use ($uploadDir) {
                             <img src="/uploads/<?= htmlspecialchars($f) ?>" title="<?= htmlspecialchars($f) ?>">
                         <?php else: ?>
                             <div class="file-icon" title="<?= htmlspecialchars($f) ?>">📄</div>
-                            <div style="font-size: 10px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"><?= htmlspecialchars($f) ?></div>
+                            <div style="font-size: 10px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;"><?= htmlspecialchars($f) ?></div>
                         <?php endif; ?>
                     </div>
                 <?php endforeach; ?>
@@ -296,130 +245,95 @@ usort($allFiles, function($a, $b) use ($uploadDir) {
 
     <div id="iconModal">
         <div class="modal-content">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-                <h3 style="margin: 0;"><?= htmlspecialchars($peLang['modal_icons'] ?? 'Icons') ?></h3>
-                <button class="btn" onclick="closeIconModal()"><?= htmlspecialchars($peLang['btn_close'] ?? 'Close') ?></button>
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                <h3 style="margin:0;"><?= htmlspecialchars($fteLang['modal_icons'] ?? 'Icons') ?></h3>
+                <button class="ed-btn" onclick="closeIconModal()"><?= htmlspecialchars($fteLang['btn_close'] ?? 'Close') ?></button>
             </div>
-            <input type="text" id="iconSearch" class="icon-search-bar" placeholder="<?= htmlspecialchars($peLang['placeholder_icons'] ?? 'Search...') ?>" onkeyup="filterIcons()">
-            <div id="iconGrid" class="icon-grid">
-                </div>
+            <input type="text" id="iconSearch" class="icon-search-bar" placeholder="<?= htmlspecialchars($fteLang['placeholder_icons'] ?? 'Search...') ?>" onkeyup="filterIcons()">
+            <div id="iconGrid" class="icon-grid"></div>
         </div>
     </div>
 
     <script>
-        const txtSaving = "<?= htmlspecialchars($peLang['saving'] ?? 'Saving...') ?>";
-        const txtSaved = "<?= htmlspecialchars($peLang['saved'] ?? 'Saved') ?>";
-        const txtSave = "<?= htmlspecialchars($peLang['save_btn'] ?? 'Save') ?>";
-        const txtError = "<?= htmlspecialchars($peLang['error_prefix'] ?? 'Error: ') ?>";
-        const txtNetworkError = "<?= htmlspecialchars($peLang['error_network'] ?? 'Network Error') ?>";
-        const msgUploaded = "<?= htmlspecialchars($peLang['msg_uploaded'] ?? 'File uploaded successfully.') ?>";
-        const errorUpload = "<?= htmlspecialchars($peLang['error_upload'] ?? 'Upload failed.') ?>";
-        const txtEnterUrl = "<?= htmlspecialchars($peLang['prompt_url'] ?? 'Enter URL:') ?>";
-        const txtLinkDefault = "<?= htmlspecialchars($peLang['default_link_text'] ?? 'Link Text') ?>";
-
         const input = document.getElementById('markdown-input');
         const preview = document.getElementById('preview-box');
-        let currentTarget = 'hero'; 
+        const txtEnterUrl = "<?= htmlspecialchars($fteLang['prompt_url'] ?? 'Enter URL:') ?>";
+        const txtLinkDefault = "<?= htmlspecialchars($fteLang['default_link_text'] ?? 'Link Text') ?>";
+        const msgUploaded = "<?= htmlspecialchars($fteLang['msg_uploaded'] ?? 'File uploaded successfully.') ?>";
+        const errorUpload = "<?= htmlspecialchars($fteLang['error_upload'] ?? 'Upload failed.') ?>";
+        const txtNetworkError = "<?= htmlspecialchars($fteLang['error_network'] ?? 'Network Error') ?>";
 
-        function updatePreview() { 
+        function updatePreview() {
             preview.innerHTML = marked.parse(input.value);
-            if(window.hljs) {
-                hljs.highlightAll();
-            }
+            if(window.hljs) hljs.highlightAll();
         }
-        
         input.addEventListener('input', updatePreview);
         setTimeout(updatePreview, 100);
 
-        function generateSlugFromTitle() {
-            const title = document.getElementById('post-title').value;
-            const slug = title.toLowerCase()
-                .replace(/ä/g, 'ae').replace(/ö/g, 'oe').replace(/ü/g, 'ue').replace(/ß/g, 'ss')
-                .replace(/[^a-z0-9\s-]/g, '') 
-                .trim()
-                .replace(/\s+/g, '-'); 
-            document.getElementById('post-slug').value = slug;
-        }
-
-        document.getElementById('post-slug').addEventListener('input', function(e) {
-            this.value = this.value.toLowerCase().replace(/[^a-z0-9-]/g, '');
-        });
-
-        document.getElementById('html-color-picker').addEventListener('change', function(e) {
-            const color = e.target.value;
-            insertTag('<span style="color:' + color + '">', '</span>');
-        });
-
-        function insertTag(open, close = '') {
+        function insertTag(open, close) {
             if (!input) return;
-
-            const start = input.selectionStart;
-            const end = input.selectionEnd;
             const scrollTop = input.scrollTop;
-
-            let text = input.value.substring(start, end);
+            const s = input.selectionStart;
+            const e = input.selectionEnd;
+            const val = input.value;
             
+            let text = val.substring(s, e);
             let trailingSpace = "";
             if (text.length > 0 && text.endsWith(" ")) {
                 text = text.trimEnd();
                 trailingSpace = " ";
             }
-
-            const replacement = open + text + close + trailingSpace;
-
-            input.value = input.value.substring(0, start) + replacement + input.value.substring(end);
             
-            const newPos = start + open.length + text.length + (text.length === 0 ? 0 : close.length);
+            const replacement = open + text + close + trailingSpace;
+            input.value = val.substring(0, s) + replacement + val.substring(e);
+            
+            const newPos = s + open.length + text.length + (text.length === 0 ? 0 : close.length);
             input.focus();
             input.setSelectionRange(newPos, newPos);
-            
             input.scrollTop = scrollTop;
             updatePreview();
         }
 
         function insertLink() {
             if (!input) return;
-
             const scrollTop = input.scrollTop;
             const start = input.selectionStart;
             const end = input.selectionEnd;
-            let text = input.value.substring(start, end); 
+            let text = input.value.substring(start, end);
 
             let url = prompt(txtEnterUrl, "https://");
-            if (url === null) return; 
+            if (url === null) return;
 
             let label = text.length > 0 ? text : txtLinkDefault;
-
             const replacement = `[${label}](${url})`;
 
             input.value = input.value.substring(0, start) + replacement + input.value.substring(end);
-
+            
             const newPos = start + replacement.length;
             input.focus();
             input.setSelectionRange(newPos, newPos);
-
             input.scrollTop = scrollTop;
             updatePreview();
         }
 
-        function wrap(before, after) { insertTag(before, after); }
-        function insert(str) { insertTag(str, ''); }
-
-        function openMediaModal(target) {
-            currentTarget = target;
-            document.getElementById('mediaModal').style.display = 'flex';
+        function generateSlug() {
+            const title = document.getElementById('thread-title').value;
+            const slug = title.toLowerCase()
+                .replace(/ä/g, 'ae').replace(/ö/g, 'oe').replace(/ü/g, 'ue').replace(/ß/g, 'ss')
+                .replace(/[^a-z0-9\s-]/g, '')
+                .trim().replace(/\s+/g, '-');
+            document.getElementById('thread-slug').value = slug;
         }
-        function closeMediaModal() { document.getElementById('mediaModal').style.display = 'none'; }
 
+        document.getElementById('html-color-picker').addEventListener('change', function(e) {
+            insertTag('<span style="color:' + e.target.value + '">', '</span>');
+        });
+
+        function openMediaModal() { document.getElementById('mediaModal').style.display = 'flex'; }
+        function closeMediaModal() { document.getElementById('mediaModal').style.display = 'none'; }
+        
         function selectImage(filename) {
-            if (currentTarget === 'hero') {
-                document.getElementById('hero-image').value = filename;
-                document.getElementById('hero-preview').innerHTML = `<img src="/uploads/${filename}" style="width:100%;height:100%;object-fit:cover;">`;
-            } else if (currentTarget === 'download') {
-                document.getElementById('download-file').value = filename;
-            } else {
-                insertTag(`\n![Bildbeschreibung](/uploads/${filename})\n`, '');
-            }
+            insertTag(`\n![Image](/uploads/${filename})\n`, '');
             closeMediaModal();
         }
 
@@ -457,7 +371,6 @@ usort($allFiles, function($a, $b) use ($uploadDir) {
                     }
                     
                     grid.insertBefore(div, grid.firstChild);
-                    
                     setTimeout(() => { statusDiv.style.display = 'none'; }, 2000);
                 } else {
                     statusDiv.style.color = 'red';
@@ -497,7 +410,7 @@ usort($allFiles, function($a, $b) use ($uploadDir) {
         
         document.addEventListener('click', function(e) {
             const pop = document.getElementById('smileyPopover');
-            const btn = document.querySelector('button[title="<?= htmlspecialchars($peLang['tooltip_emojis'] ?? 'Emojis') ?>"]');
+            const btn = document.querySelector('button[title="<?= htmlspecialchars($fteLang['tooltip_emojis'] ?? 'Emojis') ?>"]');
             if(pop.style.display === 'block' && !pop.contains(e.target) && e.target !== btn) {
                 pop.style.display = 'none';
             }
@@ -558,50 +471,39 @@ usort($allFiles, function($a, $b) use ($uploadDir) {
             });
         }
 
-        function openIconModal() {
-            document.getElementById('iconModal').style.display = 'flex';
-            renderIcons(); 
-            document.getElementById('iconSearch').focus();
-        }
-        function closeIconModal() { document.getElementById('iconModal').style.display = 'none'; }
-        
-        function filterIcons() {
-            const val = document.getElementById('iconSearch').value;
-            renderIcons(val);
-        }
+        function openIconModal() { document.getElementById('iconModal').style.display='flex'; renderIcons(); document.getElementById('iconSearch').focus(); }
+        function closeIconModal() { document.getElementById('iconModal').style.display='none'; }
+        function filterIcons() { renderIcons(document.getElementById('iconSearch').value); }
 
         document.getElementById('save-btn').addEventListener('click', function() {
             const btn = this;
             btn.disabled = true;
-            btn.innerText = txtSaving;
+            btn.innerText = "<?= htmlspecialchars($fteLang['saving'] ?? 'Saving...') ?>";
 
             const payload = {
                 id: <?= $id ?>,
-                title: document.getElementById('post-title').value,
-                slug: document.getElementById('post-slug').value,
-                excerpt: document.getElementById('post-excerpt').value,
-                content: input.value,
-                hero_image: document.getElementById('hero-image').value,
-                download_file: document.getElementById('download-file').value,
-                category_id: document.getElementById('post-category').value,
-                status: document.getElementById('post-status').value,
-                is_sticky: document.getElementById('post-sticky').checked ? 1 : 0,
-                tags: document.getElementById('post-tags').value
+                title: document.getElementById('thread-title').value,
+                slug: document.getElementById('thread-slug').value,
+                board_id: document.getElementById('board-id').value,
+                label_id: document.getElementById('label-id').value,
+                is_sticky: document.getElementById('thread-sticky').checked ? 1 : 0,
+                is_locked: document.getElementById('thread-locked').checked ? 1 : 0,
+                content: input.value
             };
 
-            fetch('save-post-ajax.php', {
+            fetch('save-forum-post-ajax.php', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload)
-            })
-            .then(res => res.json())
-            .then(data => {
-                if(data.status === 'ok') {
-                    btn.innerText = txtSaved;
-                    setTimeout(() => { btn.innerText = txtSave; btn.disabled = false; }, 1500);
-                } else { alert(txtError + data.error); btn.disabled = false; }
-            })
-            .catch(err => { alert(txtNetworkError); btn.disabled = false; });
+            }).then(r => r.json()).then(d => {
+                btn.disabled = false;
+                if(d.status === 'ok') btn.innerText = "<?= htmlspecialchars($fteLang['saved'] ?? 'Saved') ?>";
+                else alert("<?= htmlspecialchars($fteLang['error_prefix'] ?? 'Error:') ?> " + d.error);
+                setTimeout(() => btn.innerText = "<?= htmlspecialchars($fteLang['save_btn'] ?? 'Save') ?>", 2000);
+            }).catch(e => {
+                alert("<?= htmlspecialchars($fteLang['error_network'] ?? 'Network Error') ?>");
+                btn.disabled = false;
+            });
         });
     </script>
 </body>

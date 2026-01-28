@@ -78,11 +78,15 @@ $COMPOSE exec -T db mysql -u"$MYSQL_USER" -p"$MYSQL_PASSWORD" -e "$SQL" "$MYSQL_
 
 echo "[*] Optimizing permissions in web container..."
 
-$COMPOSE exec -T web chown -R www-data:www-data /var/www/html/uploads
-$COMPOSE exec -T web chmod -R 775 /var/www/html/uploads
+$COMPOSE exec -T web chown -R www-data:www-data /var/www/html/public/uploads
+$COMPOSE exec -T web chmod -R 775 /var/www/html/public/uploads
 
 $COMPOSE exec -T web chown -R www-data:www-data /var/www/html/config
 $COMPOSE exec -T web chmod -R 775 /var/www/html/config
+
+echo "[*] Setting default application language to 'en'..."
+$COMPOSE exec -T web find /var/www/html -name "*.php" -type f -exec sed -i "s/'lang'] ?? '[a-z]\{2\}'/'lang'] ?? 'en'/g" {} +
+# ---------------------------------------
 
 echo -e "\n✅ Installation completed successfully!"
 echo "-------------------------------------------------------"

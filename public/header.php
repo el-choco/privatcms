@@ -27,6 +27,15 @@ if (isset($pdo)) {
 
 $isLoggedIn = !empty($_SESSION['user_id']);
 ?>
+<style>
+.theme-switch-wrapper{display:flex;align-items:center}
+.theme-switch{position:relative;display:inline-block;width:60px;height:30px;margin-bottom:0}
+.theme-switch input{opacity:0;width:0;height:0}
+.slider{position:absolute;cursor:pointer;top:0;left:0;right:0;bottom:0;background-color: rgba(255, 255, 255, 0.2);transition:.4s;border-radius:34px}
+.slider:before{position:absolute;content:"\f185";font-family:"Font Awesome 6 Free";font-weight:900;height:22px;width:22px;left:4px;bottom:4px;background-color:#fff;transition:.4s;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:15px;color:#FFD43B}
+input:checked + .slider{background-color:rgba(255, 255, 255, 0.2);}
+input:checked + .slider:before{transform:translateX(30px);content:"\f186";color:#4a5568}</style>
+
 <header class="site-header">
     <div class="header-container">
       <a href="/" class="site-title"><?= htmlspecialchars($settings['blog_title'] ?? 'PiperBlog') ?></a>
@@ -34,7 +43,12 @@ $isLoggedIn = !empty($_SESSION['user_id']);
         
         <?php if (!empty($menuLinks)): ?>
             <?php foreach($menuLinks as $link): ?>
-                <a href="<?= htmlspecialchars($link['link']) ?>" class="btn-nav"><?= htmlspecialchars($link['label']) ?></a>
+                <a href="<?= htmlspecialchars($link['link']) ?>" class="btn-nav">
+                    <?php if (!empty($link['icon'])): ?>
+                        <i class="<?= htmlspecialchars($link['icon']) ?>" style="margin-right: 5px;"></i>
+                    <?php endif; ?>
+                    <?= htmlspecialchars($link['label']) ?>
+                </a>
             <?php endforeach; ?>
         <?php else: ?>
             <a href="/" class="btn-nav">Home</a>
@@ -72,10 +86,28 @@ $isLoggedIn = !empty($_SESSION['user_id']);
         </div>
 
         <?php if (($settings['dark_mode_enabled'] ?? '0') === '1'): ?>
-            <button id="theme-toggle" class="theme-toggle" aria-label="Theme">🌓</button>
+            <div class="theme-switch-wrapper">
+                <label class="theme-switch" for="theme-toggle">
+                    <input type="checkbox" id="theme-toggle">
+                    <span class="slider"></span>
+                </label>
+            </div>
         <?php endif; ?>
         
-        <a href="/admin/" class="btn-admin"><?= htmlspecialchars($l_admin) ?></a>
+        <?php if (!empty($_SESSION['role']) && in_array($_SESSION['role'], ['admin', 'editor'])): ?>
+            <a href="/admin/" class="btn-admin"><?= htmlspecialchars($l_admin) ?></a>
+        <?php endif; ?>
       </div>
     </div>
 </header>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const toggle = document.getElementById('theme-toggle');
+    const currentTheme = document.documentElement.getAttribute('data-theme');
+    
+    if (toggle && currentTheme === 'dark') {
+        toggle.checked = true;
+    }
+});
+</script>

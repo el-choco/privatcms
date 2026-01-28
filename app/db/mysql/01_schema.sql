@@ -12,7 +12,7 @@ CREATE TABLE IF NOT EXISTS users (
 
 -- Default Admin (User: admin, Pass: admin123)
 INSERT INTO users (username, password_hash, email, role)
-VALUES ('admin', '$2y$10$JmFQxjH6U6xF3JH2RrPoGeD7m9Emo9c9GkQm6b7NVQyU1S1fOeSgW', 'admin@example.com', 'admin')
+VALUES ('admin', '$2y$10$vI8aWBnW3fID.ZQ4/zo1G.q1lRps.9cGLcZEiGDMVr5yUP1KUOYTa', 'admin@example.com', 'admin')
 ON DUPLICATE KEY UPDATE password_hash=VALUES(password_hash), email=VALUES(email), role=VALUES(role);
 
 -- Table: Categories
@@ -345,6 +345,7 @@ CREATE TABLE IF NOT EXISTS forum_threads (
     slug VARCHAR(255) NOT NULL,
     is_locked TINYINT(1) DEFAULT 0,
     is_sticky TINYINT(1) DEFAULT 0,
+    sort_order INT DEFAULT 0,
     views INT DEFAULT 0,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -362,5 +363,69 @@ CREATE TABLE IF NOT EXISTS forum_posts (
     FOREIGN KEY (thread_id) REFERENCES forum_threads(id) ON DELETE CASCADE,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- --------------------------------------------------------
+-- USER AVATAR UPDATE (SAFE ADD)
+-- --------------------------------------------------------
+
+SET @dbname = DATABASE();
+SET @tablename = "users";
+SET @columnname = "avatar";
+SET @preparedStatement = (SELECT IF(
+  (SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE (table_name = @tablename) AND (table_schema = @dbname) AND (column_name = @columnname)) > 0,
+  "SELECT 1",
+  "ALTER TABLE users ADD COLUMN avatar VARCHAR(255) DEFAULT NULL;"
+));
+PREPARE alterIfNotExists FROM @preparedStatement;
+EXECUTE alterIfNotExists;
+DEALLOCATE PREPARE alterIfNotExists;
+
+-- --------------------------------------------------------
+-- FORUM THREADS SORT ORDER UPDATE (SAFE ADD)
+-- --------------------------------------------------------
+
+SET @dbname = DATABASE();
+SET @tablename = "forum_threads";
+SET @columnname = "sort_order";
+SET @preparedStatement = (SELECT IF(
+  (SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE (table_name = @tablename) AND (table_schema = @dbname) AND (column_name = @columnname)) > 0,
+  "SELECT 1",
+  "ALTER TABLE forum_threads ADD COLUMN sort_order INT DEFAULT 0;"
+));
+PREPARE alterIfNotExists FROM @preparedStatement;
+EXECUTE alterIfNotExists;
+DEALLOCATE PREPARE alterIfNotExists;
+
+-- --------------------------------------------------------
+-- MENU ICONS UPDATE (SAFE ADD)
+-- --------------------------------------------------------
+
+SET @dbname = DATABASE();
+SET @tablename = "menu_items";
+SET @columnname = "icon";
+SET @preparedStatement = (SELECT IF(
+  (SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE (table_name = @tablename) AND (table_schema = @dbname) AND (column_name = @columnname)) > 0,
+  "SELECT 1",
+  "ALTER TABLE menu_items ADD COLUMN icon VARCHAR(100) DEFAULT NULL;"
+));
+PREPARE alterIfNotExists FROM @preparedStatement;
+EXECUTE alterIfNotExists;
+DEALLOCATE PREPARE alterIfNotExists;
+
+-- --------------------------------------------------------
+-- CATEGORIES COLOR UPDATE (SAFE ADD)
+-- --------------------------------------------------------
+
+SET @dbname = DATABASE();
+SET @tablename = "categories";
+SET @columnname = "color";
+SET @preparedStatement = (SELECT IF(
+  (SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE (table_name = @tablename) AND (table_schema = @dbname) AND (column_name = @columnname)) > 0,
+  "SELECT 1",
+  "ALTER TABLE categories ADD COLUMN color VARCHAR(7) DEFAULT '#3182ce';"
+));
+PREPARE alterIfNotExists FROM @preparedStatement;
+EXECUTE alterIfNotExists;
+DEALLOCATE PREPARE alterIfNotExists;
 
 COMMIT;

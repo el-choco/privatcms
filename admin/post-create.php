@@ -15,7 +15,11 @@ $pcLang = $t['post_create'] ?? [];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $title = $_POST['title'] ?? ($pcLang['default_title'] ?? 'New Post');
-    $slug = strtolower(trim(preg_replace('/[^A-Za-z0-9-]+/', '-', $title), '-'));
+    
+    $slug = mb_strtolower($title, 'UTF-8');
+    $slug = str_replace(['ä', 'ö', 'ü', 'ß'], ['ae', 'oe', 'ue', 'ss'], $slug);
+    $slug = trim(preg_replace('/[^a-z0-9-]+/', '-', $slug), '-');
+
     $userId = (int)($_SESSION['admin']['id'] ?? 1); 
 
     $stmt = $pdo->prepare("INSERT INTO posts (title, slug, content, status, user_id, author_id, created_at) VALUES (?, ?, '', 'draft', ?, ?, NOW())");

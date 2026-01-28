@@ -20,14 +20,12 @@ $langFile = __DIR__ . '/../config/lang/' . $currentLang . '.ini';
 $t = file_exists($langFile) ? parse_ini_file($langFile, true) : [];
 $cLang = $t['comments'] ?? [];
 
-// --- AKTIONEN (Speichern, Löschen, etc.) ---
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     $action = $_POST['action'];
     $id = isset($_POST['id']) ? (int)$_POST['id'] : 0;
     
     if ($action === 'delete' && $id > 0) {
         $pdo->prepare("DELETE FROM comments WHERE id = ?")->execute([$id]);
-        // Optional: Auch Antworten löschen, die zu diesem Kommentar gehören
         $pdo->prepare("DELETE FROM comments WHERE parent_id = ?")->execute([$id]);
     } 
     elseif ($action === 'approve' && $id > 0) {
@@ -42,12 +40,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     } 
     elseif ($action === 'reply') {
         $postId = (int)($_POST['post_id'] ?? 0);
-        $parentId = (int)($_POST['parent_id'] ?? 0); // Die ID des Kommentars, auf den geantwortet wird
+        $parentId = (int)($_POST['parent_id'] ?? 0); 
         $replyContent = trim($_POST['reply_content'] ?? '');
         $adminName = $_SESSION['admin']['username'] ?? 'Admin';
         
         if ($postId > 0 && $replyContent !== '') {
-            // parent_id wird hier mitgespeichert
             $stmt = $pdo->prepare("INSERT INTO comments (post_id, parent_id, author_name, author_email, content, status, created_at) VALUES (?, ?, ?, '', ?, 'approved', NOW())");
             $stmt->execute([$postId, ($parentId > 0 ? $parentId : null), $adminName, $replyContent]);
         }
@@ -57,37 +54,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     exit;
 }
 
-// --- DATEN LADEN & SORTIEREN ---
-// Wir holen alle Kommentare
 $allComments = $pdo->query("SELECT c.*, p.title as post_title FROM comments c JOIN posts p ON c.post_id = p.id ORDER BY c.created_at DESC")->fetchAll();
 
-// Wir sortieren sie in Eltern und Kinder
 $parents = [];
 $children = [];
 
 foreach ($allComments as $c) {
     if (!empty($c['parent_id'])) {
-        $children[$c['parent_id']][] = $c; // Das ist eine Antwort
+        $children[$c['parent_id']][] = $c; 
     } else {
-        $parents[] = $c; // Das ist ein Hauptkommentar
+        $parents[] = $c; 
     }
 }
 
-// Hilfsfunktion, um Zeilen zu rendern (damit wir den Code nicht doppeln müssen für Eltern/Kinder)
 function renderCommentRow($c, $cLang, $t, $isChild = false) {
-    // Style Anpassung für Kinder (eingerückt)
     $rowStyle = "border-bottom: 1px solid #f1f5f9; transition: background 0.2s;";
     $cellStyle = "padding: 18px; vertical-align: top;";
     $indentStyle = $isChild ? "padding-left: 50px; background: #fdfdfd;" : "";
     
-    // Status Farben
     $statusKey = 'status_' . $c['status']; 
     $statusLabel = $cLang[$statusKey] ?? ucfirst($c['status']);
     $statusColor = '#edf2f7'; $textColor = '#4a5568';
     if($c['status'] === 'approved') { $statusColor = '#c6f6d5'; $textColor = '#22543d'; }
     if($c['status'] === 'spam') { $statusColor = '#fed7d7'; $textColor = '#822727'; }
 
-    // Pfeil Icon für Antworten
     $arrowIcon = $isChild ? '<span style="color:#cbd5e0; margin-right:10px; font-size:1.2rem;">↳</span>' : '';
 
     ob_start(); 
@@ -189,7 +179,7 @@ include 'header.php';
         <div style="width: 100%; max-width: 1500px;">
             
             <header style="margin-bottom: 30px;">
-                <h1 style="margin:0; font-size: 1.5rem; color: #1a202c;">
+                <h1 style="margin:0; font-size: 2rem; color: #1a202c;">
                     <?= htmlspecialchars($cLang['manage_title'] ?? 'Manage Comments') ?>
                 </h1>
             </header>
@@ -222,7 +212,6 @@ include 'header.php';
                                 
                                 <?php if (isset($children[$p['id']])): ?>
                                     <?php 
-                                        // Sort children old to new (so the conversation reads naturally)
                                         usort($children[$p['id']], function($a, $b) {
                                             return strtotime($a['created_at']) - strtotime($b['created_at']);
                                         });

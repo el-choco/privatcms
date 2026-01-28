@@ -63,59 +63,21 @@ if (isset($_GET['delete'])) {
 
 $allBoards = $pdo->query("SELECT * FROM forum_boards ORDER BY sort_order ASC, created_at ASC")->fetchAll();
 
-function renderRows($boards, $parentId = null, $level = 0, $forumLang = [], $cmnLang = []) {
-    $children = array_filter($boards, function($b) use ($parentId) {
-        return $b['parent_id'] == $parentId;
-    });
-
-    if (empty($children)) return;
-
-    foreach ($children as $b) {
-        $padding = 10 + ($level * 35);
-        $treeIcon = ($level > 0) ? '<span class="tree-icon"><i class="fa-solid fa-turn-up fa-rotate-90"></i></span>' : '';
-        $rowClass = $b['is_category'] ? 'row-category' : 'row-forum';
-        
-        echo '<tr class="' . $rowClass . '" data-id="' . $b['id'] . '">';
-        
-        echo '<td style="width:40px; text-align:center; cursor:grab;" class="drag-handle"><i class="fa-solid fa-grip-vertical" style="color:#cbd5e1;"></i></td>';
-
-        echo '<td style="padding-left: ' . $padding . 'px;">';
-        echo '<div style="display:flex; align-items:center;">';
-        echo $treeIcon;
-        echo '<div>';
-        echo '<div class="board-title">' . htmlspecialchars($b['title']) . '</div>';
-        echo '<div class="board-slug">/forum/' . htmlspecialchars($b['slug']) . '</div>';
-        echo '</div>';
-        echo '</div>';
-        echo '</td>';
-
-        echo '<td>';
-        if ($b['is_category']) {
-            echo '<span class="badge badge-cat">' . htmlspecialchars($forumLang['cat_label'] ?? 'Category') . '</span>';
-        } else {
-            echo '<span class="badge badge-forum">' . htmlspecialchars($forumLang['board_label'] ?? 'Forum') . '</span>';
+function buildTree(array $elements, $parentId = null) {
+    $branch = [];
+    foreach ($elements as $element) {
+        if ($element['parent_id'] == $parentId) {
+            $children = buildTree($elements, $element['id']);
+            if ($children) {
+                $element['children'] = $children;
+            }
+            $branch[] = $element;
         }
-        echo '</td>';
-
-        echo '<td class="text-muted">';
-        if ($b['parent_id']) {
-            foreach($boards as $p) { if($p['id'] == $b['parent_id']) { echo htmlspecialchars($p['title']); break; } }
-        } else {
-            echo '<span style="opacity:0.3;">—</span>';
-        }
-        echo '</td>';
-
-        echo '<td style="text-align:right;">';
-        $jsonData = htmlspecialchars(json_encode($b), ENT_QUOTES, 'UTF-8');
-        echo "<button class='btn-icon' title='" . htmlspecialchars($cmnLang['edit'] ?? 'Edit') . "' onclick='openModal($jsonData)'><i class='fa-solid fa-pen'></i></button>";
-        echo "<a href='?delete={$b['id']}' class='btn-icon delete' title='" . htmlspecialchars($cmnLang['delete'] ?? 'Delete') . "' onclick=\"return confirm('".htmlspecialchars($forumLang['delete_confirm'] ?? 'Delete?')."')\"><i class='fa-solid fa-trash'></i></a>";
-        echo '</td>';
-        
-        echo '</tr>';
-
-        renderRows($boards, $b['id'], $level + 1, $forumLang, $cmnLang);
     }
+    return $branch;
 }
+
+$tree = buildTree($allBoards);
 
 require_once 'header.php';
 ?>
@@ -123,42 +85,44 @@ require_once 'header.php';
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
 
 <style>
-    .card-table { background: #fff; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); border: 1px solid #e2e8f0; overflow: hidden; border-top: 5px solid #3182ce; }
-    .forum-table { width: 100%; border-collapse: collapse; }
-    .forum-table th { background: #f8fafc; color: #64748b; font-weight: 600; text-transform: uppercase; font-size: 0.75rem; letter-spacing: 0.05em; padding: 16px 24px; border-bottom: 1px solid #e2e8f0; text-align: left; }
-    .forum-table td { padding: 16px 24px; border-bottom: 1px solid #f1f5f9; vertical-align: middle; color: #334155; }
-    .forum-table tr:last-child td { border-bottom: none; }
+    .content-area { max-width: 1500px; margin: 0 auto; width: 100%; }
+    .page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; padding-top: 20px; }
+    .page-title { margin: 0; font-size: 2rem; font-weight: 700; color: #1e293b; }
     
-    .row-category { background-color: #e6f0ff; }
-    .row-category:hover td { background-color: #dcebff; }
+    .cat-header { background: #1877f2; color: #fff; font-weight: 700; font-size: 1rem; padding: 10px 15px; text-transform: uppercase; letter-spacing: 1px; display: flex; align-items: center; justify-content: space-between; height: 20px; }
+    .cat-actions .btn-icon { color: rgb(100 116 139); border-color: rgba(255,255,255,0.3); }
+    .cat-actions .btn-icon:hover { color: #fff; background: rgba(255,255,255,0.2); }
     
-    .row-forum { background-color: #f8fbff; }
-    .row-forum:hover td { background-color: #f0f7ff; }
-
-    .row-category .board-title { font-weight: 700; color: #0f172a; font-size: 1rem; }
-    .row-forum .board-title { font-weight: 600; color: #334155; font-size: 0.95rem; }
+    .board-header { background: #edf2f7; color: #2d3748; font-weight: 600; font-size: 0.95rem; border-top: 1px solid #e2e8f0; border-bottom: 1px solid #cbd5e0; padding: 8px 15px; display: flex; justify-content: space-between; align-items: center;}
     
-    .board-slug { font-size: 0.75rem; color: #94a3b8; margin-top: 2px; font-family: monospace; }
+    .forum-row { background: #fff; border-bottom: 1px solid #f1f5f9; display: flex; align-items: center; padding: 12px 15px; }
+    .forum-row:last-child { border-bottom: none; }
+    .forum-row:hover { background-color: #f8fafc; }
     
-    .tree-icon { color: #cbd5e1; margin-right: 12px; font-size: 0.8rem; display: flex; align-items: center; height: 100%; }
+    .drag-handle { cursor: grab; color: #cbd5e1; margin-right: 15px; width: 20px; text-align: center; }
+    .drag-handle:hover { color: #4a5568; }
     
-    .badge { display: inline-flex; align-items: center; padding: 4px 10px; border-radius: 6px; font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.02em; }
+    .forum-info { flex: 1; }
+    .forum-title { font-weight: 600; color: #334155; font-size: 0.95rem; display: flex; align-items: center; gap: 8px; }
+    .forum-slug { font-size: 0.75rem; color: #94a3b8; font-family: monospace; margin-top: 2px; }
+    
+    .badge { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 4px; font-size: 0.7rem; font-weight: 700; text-transform: uppercase; margin-left: 10px; }
     .badge-cat { background-color: #dcfce7; color: #166534; border: 1px solid #bbf7d0; }
     .badge-forum { background-color: #e0f2fe; color: #0369a1; border: 1px solid #bae6fd; }
-    
-    .text-muted { color: #64748b; font-size: 0.9rem; }
-    
-    .btn-icon { width: 34px; height: 34px; display: inline-flex; align-items: center; justify-content: center; border-radius: 6px; border: 1px solid transparent; background: transparent; color: #64748b; transition: all 0.2s; cursor: pointer; margin-left: 4px; font-size: 0.9rem; }
-    .btn-icon:hover { background-color: rgba(255,255,255,0.5); color: #334155; border-color: #cbd5e1; }
+
+    .actions { display: flex; gap: 5px; }
+    .btn-icon { width: 32px; height: 32px; display: inline-flex; align-items: center; justify-content: center; border-radius: 6px; border: 1px solid #e2e8f0; background: #fff; color: #64748b; transition: all 0.2s; cursor: pointer; font-size: 0.9rem; text-decoration: none; }
+    .btn-icon:hover { background-color: #f8fafc; color: #334155; border-color: #cbd5e1; }
     .btn-icon.delete:hover { background-color: #fef2f2; color: #ef4444; border-color: #fee2e2; }
     
-    .page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; }
-    .page-title { margin: 0; font-size: 1.5rem; font-weight: 700; color: #1e293b; }
+    .empty-placeholder { padding: 20px; text-align: center; color: #a0aec0; font-style: italic; background: #fff; }
     
-    .drag-handle:hover i { color: #64748b !important; }
+    .sortable-container { display: flex; flex-direction: column; gap: 20px; }
+    .board-card { border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
+    .board-card:first-child { border-top: 0; } 
 </style>
 
-<div class="admin-content">
+<div class="content-area">
     <div class="page-header">
         <h1 class="page-title"><?= htmlspecialchars($forumLang['manage_boards'] ?? 'Manage Boards') ?></h1>
         <button class="btn btn-primary" onclick="openModal()">
@@ -166,30 +130,87 @@ require_once 'header.php';
         </button>
     </div>
 
-    <div class="card-table">
-        <table class="forum-table">
-            <thead>
-                <tr>
-                    <th style="width:40px;"></th>
-                    <th><?= htmlspecialchars($forumLang['board_title'] ?? 'Title') ?></th>
-                    <th width="120"><?= htmlspecialchars($forumLang['type'] ?? 'Type') ?></th>
-                    <th width="200"><?= htmlspecialchars($forumLang['parent_board'] ?? 'Parent') ?></th>
-                    <th width="120" style="text-align:right;"><?= htmlspecialchars($cmnLang['actions'] ?? 'Actions') ?></th>
-                </tr>
-            </thead>
-            <tbody id="sortable-list">
-                <?php if (empty($allBoards)): ?>
-                    <tr>
-                        <td colspan="5" style="padding:40px; text-align:center; color:#94a3b8;">
-                            <i class="fa-regular fa-folder-open" style="font-size:2rem; margin-bottom:10px; display:block;"></i>
-                            <?= htmlspecialchars($forumLang['no_boards'] ?? 'No boards found') ?>
-                        </td>
-                    </tr>
-                <?php else: ?>
-                    <?php renderRows($allBoards, null, 0, $forumLang, $cmnLang); ?>
-                <?php endif; ?>
-            </tbody>
-        </table>
+    <div id="sortable-root" class="sortable-container">
+        
+        <?php 
+        foreach ($tree as $category) {
+            if ($category['is_category']) {
+                $jsonData = htmlspecialchars(json_encode($category), ENT_QUOTES, 'UTF-8');
+                ?>
+                <div class="board-card" data-id="<?= $category['id'] ?>">
+                    <div class="cat-header">
+                        <span><i class="fa-regular fa-folder-open" style="margin-right:8px; opacity:0.7;"></i> <?= htmlspecialchars($category['title']) ?></span>
+                        <div class="cat-actions actions">
+                             <button class="btn-icon" title="<?= htmlspecialchars($cmnLang['edit'] ?? 'Edit') ?>" onclick='openModal(<?= $jsonData ?>)'><i class="fa-solid fa-pen"></i></button>
+                             <a href="?delete=<?= $category['id'] ?>" class="btn-icon delete" title="<?= htmlspecialchars($cmnLang['delete'] ?? 'Delete') ?>" onclick="return confirm('<?= htmlspecialchars($forumLang['delete_confirm'] ?? 'Delete?') ?>')"><i class="fa-solid fa-trash"></i></a>
+                        </div>
+                    </div>
+                    
+                    <div class="sortable-children" data-parent-id="<?= $category['id'] ?>">
+                        <?php if (!empty($category['children'])): ?>
+                            <?php foreach ($category['children'] as $board): 
+                                $jsonDataBoard = htmlspecialchars(json_encode($board), ENT_QUOTES, 'UTF-8');
+                            ?>
+                                <div class="forum-row" data-id="<?= $board['id'] ?>">
+                                    <div class="drag-handle"><i class="fa-solid fa-grip-vertical"></i></div>
+                                    <div class="forum-info">
+                                        <div class="forum-title">
+                                            <?= htmlspecialchars($board['title']) ?>
+                                            <span class="badge badge-forum"><?= htmlspecialchars($forumLang['board_label'] ?? 'Forum') ?></span>
+                                        </div>
+                                        <div class="forum-slug">/forum/<?= htmlspecialchars($board['slug']) ?></div>
+                                    </div>
+                                    <div class="actions">
+                                        <button class="btn-icon" title="<?= htmlspecialchars($cmnLang['edit'] ?? 'Edit') ?>" onclick='openModal(<?= $jsonDataBoard ?>)'><i class="fa-solid fa-pen"></i></button>
+                                        <a href="?delete=<?= $board['id'] ?>" class="btn-icon delete" title="<?= htmlspecialchars($cmnLang['delete'] ?? 'Delete') ?>" onclick="return confirm('<?= htmlspecialchars($forumLang['delete_confirm'] ?? 'Delete?') ?>')"><i class="fa-solid fa-trash"></i></a>
+                                    </div>
+                                </div>
+                            <?php endforeach; ?>
+                        <?php else: ?>
+                            <div class="empty-placeholder"><?= htmlspecialchars($forumLang['no_boards'] ?? 'No forums in this category') ?></div>
+                        <?php endif; ?>
+                    </div>
+                </div>
+                <?php
+            }
+        }
+
+        $orphans = array_filter($tree, function($item) { return !$item['is_category']; });
+        
+        if (!empty($orphans)) {
+            ?>
+            <div class="board-card" data-id="orphans">
+                <div class="cat-header" style="background: #4a5568;">
+                    <span><i class="fa-solid fa-layer-group" style="margin-right:8px; opacity:0.7;"></i> <?= htmlspecialchars($forumLang['uncategorized'] ?? 'Uncategorized / Top Level Forums') ?></span>
+                </div>
+                <div class="sortable-children" data-parent-id="0">
+                    <?php foreach ($orphans as $board): 
+                         $jsonDataBoard = htmlspecialchars(json_encode($board), ENT_QUOTES, 'UTF-8');
+                    ?>
+                        <div class="forum-row" data-id="<?= $board['id'] ?>">
+                            <div class="drag-handle"><i class="fa-solid fa-grip-vertical"></i></div>
+                            <div class="forum-info">
+                                <div class="forum-title">
+                                    <?= htmlspecialchars($board['title']) ?>
+                                    <span class="badge badge-forum"><?= htmlspecialchars($forumLang['board_label'] ?? 'Forum') ?></span>
+                                </div>
+                                <div class="forum-slug">/forum/<?= htmlspecialchars($board['slug']) ?></div>
+                            </div>
+                            <div class="actions">
+                                <button class="btn-icon" title="<?= htmlspecialchars($cmnLang['edit'] ?? 'Edit') ?>" onclick='openModal(<?= $jsonDataBoard ?>)'><i class="fa-solid fa-pen"></i></button>
+                                <a href="?delete=<?= $board['id'] ?>" class="btn-icon delete" title="<?= htmlspecialchars($cmnLang['delete'] ?? 'Delete') ?>" onclick="return confirm('<?= htmlspecialchars($forumLang['delete_confirm'] ?? 'Delete?') ?>')"><i class="fa-solid fa-trash"></i></a>
+                            </div>
+                        </div>
+                    <?php endforeach; ?>
+                </div>
+            </div>
+            <?php
+        }
+        
+        if (empty($tree)) {
+             echo '<div class="empty-placeholder" style="padding: 50px; border: 2px dashed #e2e8f0; border-radius: 8px;">' . htmlspecialchars($forumLang['no_boards'] ?? 'No boards found') . '</div>';
+        }
+        ?>
     </div>
 </div>
 
@@ -266,21 +287,49 @@ window.onclick = function(e) {
     if (e.target == modal) modal.style.display = 'none';
 }
 
-const list = document.getElementById('sortable-list');
-if (list) {
-    Sortable.create(list, {
+document.querySelectorAll('.sortable-children').forEach(function(el) {
+    Sortable.create(el, {
+        group: 'nested', 
         handle: '.drag-handle',
         animation: 150,
+        fallbackOnBody: true,
+        swapThreshold: 0.65,
         onEnd: function (evt) {
-            const items = list.querySelectorAll('tr');
+            
+            const parent = evt.to;
+            const items = parent.querySelectorAll('.forum-row');
             const order = [];
             items.forEach(item => order.push(item.getAttribute('data-id')));
+            
             
             fetch('forums.php', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
                 body: 'action=update_order&order[]=' + order.join('&order[]=')
             });
+        }
+    });
+});
+
+const root = document.getElementById('sortable-root');
+if (root) {
+    Sortable.create(root, {
+        handle: '.cat-header', 
+        animation: 150,
+        onEnd: function (evt) {
+            const items = root.querySelectorAll('.board-card');
+            const order = [];
+            items.forEach(item => order.push(item.getAttribute('data-id')));
+            
+            const cleanOrder = order.filter(id => id !== 'orphans');
+
+            if(cleanOrder.length > 0) {
+                fetch('forums.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: 'action=update_order&order[]=' + cleanOrder.join('&order[]=')
+                });
+            }
         }
     });
 }

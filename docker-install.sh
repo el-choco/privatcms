@@ -80,8 +80,8 @@ $COMPOSE exec -T db mysql -u"$MYSQL_USER" -p"$MYSQL_PASSWORD" -e "$SQL" "$MYSQL_
 
 echo "[*] Optimiere Berechtigungen im Web-Container..."
 
-$COMPOSE exec -T web chown -R www-data:www-data /var/www/html/uploads
-$COMPOSE exec -T web chmod -R 775 /var/www/html/uploads
+$COMPOSE exec -T web chown -R www-data:www-data /var/www/html/public/uploads
+$COMPOSE exec -T web chmod -R 775 /var/www/html/public/uploads
 
 $COMPOSE exec -T web chown -R www-data:www-data /var/www/html/config
 $COMPOSE exec -T web chmod -R 775 /var/www/html/config

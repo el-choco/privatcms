@@ -14,6 +14,9 @@ RewriteRule ^forum/thread/([a-z0-9-]+)$ thread.php?slug=$1 [L,QSA]
 # 3. Forum Kategorie (Board): /forum/mein-board
 RewriteRule ^forum/([a-z0-9-]+)$ board.php?slug=$1 [L,QSA]
 
+# 4. Sitemap XML: /sitemap.xml
+RewriteRule ^sitemap\.xml$ sitemap.php [L]
+
 # ----------------------------------------------------------------------
 # CMS ROUTING
 # ----------------------------------------------------------------------

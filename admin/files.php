@@ -78,7 +78,7 @@ require_once 'header.php';
 <style>
     .file-manager-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; }
     
-    /* Upload Zone (Die "Bild Pfeile" Zone) */
+    /* Upload Zone */
     .upload-area { 
         background: #f8fafc; border: 2px dashed #cbd5e0; border-radius: 12px; padding: 30px; 
         text-align: center; transition: all 0.3s; cursor: pointer; margin-bottom: 30px; display: flex; flex-direction: column-reverse;; }
@@ -95,9 +95,10 @@ require_once 'header.php';
     
     .file-preview { 
         height: 140px; background: #f1f5f9; display: flex; align-items: center; justify-content: center; 
-        overflow: hidden; position: relative;
+        overflow: hidden; position: relative; transition: opacity 0.2s;
     }
     .file-preview img { width: 100%; height: 100%; object-fit: cover; }
+    .file-preview:hover { opacity: 0.9; }
     .file-icon { font-size: 3.5rem; color: #718096; }
     
     .file-info { padding: 12px; flex-grow: 1; display: flex; flex-direction: column; }
@@ -113,6 +114,13 @@ require_once 'header.php';
     .modal-title { font-size: 1.2rem; font-weight: 700; margin-bottom: 15px; color: #2d3748; }
     .link-input { width: 100%; padding: 10px; border: 2px solid #e2e8f0; border-radius: 6px; background: #f7fafc; font-family: monospace; text-align: center; margin-bottom: 20px; font-size: 0.9rem; box-sizing: border-box; }
     
+    /* Lightbox Styles */
+    #lightbox { display: none; position: fixed; z-index: 11000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); backdrop-filter: blur(4px); justify-content: center; align-items: center; }
+    .lightbox-content { position: relative; max-width: 90%; max-height: 90%; display: flex; justify-content: center; align-items: center; }
+    .lightbox-content img { max-width: 100%; max-height: 90vh; border-radius: 4px; box-shadow: 0 5px 15px rgba(0,0,0,0.5); }
+    .lightbox-close { position: absolute; top: -40px; right: 0; color: white; font-size: 2rem; cursor: pointer; transition: 0.2s; }
+    .lightbox-close:hover { color: #fc8181; }
+
     .alert { padding: 15px; border-radius: 8px; margin-bottom: 20px; font-weight: 500; }
     .alert.success { background: #c6f6d5; color: #22543d; border: 1px solid #9ae6b4; }
     .alert.error { background: #fed7d7; color: #822727; border: 1px solid #feb2b2; }
@@ -157,7 +165,7 @@ require_once 'header.php';
                 <?php if (is_dir($filePath)) continue; ?>
                 
                 <div class="file-card">
-                    <div class="file-preview">
+                    <div class="file-preview" <?php if ($isImage): ?>onclick="openLightbox('/uploads/<?= htmlspecialchars($f) ?>')" style="cursor:zoom-in" title="Vorschau"<?php endif; ?>>
                         <?php if ($isImage): ?>
                             <img src="/uploads/<?= htmlspecialchars($f) ?>" loading="lazy">
                         <?php else: ?>
@@ -195,6 +203,13 @@ require_once 'header.php';
             <button class="btn btn-primary" style="flex:1;" onclick="copyModalLink()"><?= htmlspecialchars($fLang['modal_copy'] ?? 'Copy') ?></button>
             <button class="btn" style="flex:1; background:#edf2f7; color:#4a5568;" onclick="closeModal()"><?= htmlspecialchars($fLang['modal_cancel'] ?? 'Close') ?></button>
         </div>
+    </div>
+</div>
+
+<div id="lightbox" onclick="closeLightbox()">
+    <div class="lightbox-content" onclick="event.stopPropagation()">
+        <span class="lightbox-close" onclick="closeLightbox()">&times;</span>
+        <img id="lightboxImg" src="">
     </div>
 </div>
 
@@ -251,9 +266,30 @@ require_once 'header.php';
         }, 1000);
     }
     
+    function openLightbox(url) {
+        const lb = document.getElementById('lightbox');
+        const img = document.getElementById('lightboxImg');
+        img.src = url;
+        lb.style.display = 'flex';
+    }
+    
+    function closeLightbox() {
+        const lb = document.getElementById('lightbox');
+        const img = document.getElementById('lightboxImg');
+        lb.style.display = 'none';
+        img.src = '';
+    }
+
     window.onclick = function(e) {
         if(e.target == document.getElementById('linkModal')) closeModal();
     }
+    
+    document.addEventListener('keydown', function(e) {
+        if (e.key === "Escape") {
+            closeModal();
+            closeLightbox();
+        }
+    });
 </script>
 
 <?php include 'footer.php'; ?>

@@ -17,12 +17,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $label = trim($_POST['label']);
         $link = trim($_POST['link']);
         $type = $_POST['type'];
+        $icon = trim($_POST['icon'] ?? '');
         
         $stmt = $pdo->query("SELECT MAX(position) FROM menu_items");
         $pos = (int)$stmt->fetchColumn() + 1;
 
-        $stmt = $pdo->prepare("INSERT INTO menu_items (label, link, type, position) VALUES (?, ?, ?, ?)");
-        $stmt->execute([$label, $link, $type, $pos]);
+        $stmt = $pdo->prepare("INSERT INTO menu_items (label, link, type, position, icon) VALUES (?, ?, ?, ?, ?)");
+        $stmt->execute([$label, $link, $type, $pos, $icon]);
     }
     elseif (isset($_POST['save_order'])) {
         $items = json_decode($_POST['order_data'], true);
@@ -68,6 +69,13 @@ include 'header.php';
                         </select>
                         <input type="hidden" name="label" value="<?= htmlspecialchars($pages[0]['title'] ?? '') ?>">
                     </div>
+                    <div class="form-group">
+                        <label class="form-label">Icon (FontAwesome)</label>
+                        <div style="display: flex; gap: 10px; align-items: center;">
+                            <input type="text" name="icon" class="form-control" placeholder="fa-solid fa-house" list="fa-icons" oninput="document.getElementById('icon-preview-page').className = this.value">
+                            <div style="width: 30px; text-align: center;"><i id="icon-preview-page" class=""></i></div>
+                        </div>
+                    </div>
                     <button type="submit" class="btn"><?= htmlspecialchars($mLang['btn_add'] ?? 'Add') ?></button>
                 </form>
             </div>
@@ -84,6 +92,13 @@ include 'header.php';
                     <div class="form-group">
                         <label class="form-label"><?= htmlspecialchars($mLang['label_url'] ?? 'URL') ?></label>
                         <input type="text" name="link" class="form-control" placeholder="https://..." required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Icon (FontAwesome)</label>
+                        <div style="display: flex; gap: 10px; align-items: center;">
+                            <input type="text" name="icon" class="form-control" placeholder="fa-solid fa-link" list="fa-icons" oninput="document.getElementById('icon-preview-custom').className = this.value">
+                            <div style="width: 30px; text-align: center;"><i id="icon-preview-custom" class=""></i></div>
+                        </div>
                     </div>
                     <button type="submit" class="btn"><?= htmlspecialchars($mLang['btn_add'] ?? 'Add') ?></button>
                 </form>
@@ -110,7 +125,12 @@ include 'header.php';
                 <?php else: ?>
                     <?php foreach($menuItems as $item): ?>
                         <li class="menu-item" data-id="<?= $item['id'] ?>" style="background:#f8fafc; border:1px solid #e2e8f0; margin-bottom:8px; padding:12px; border-radius:6px; display:flex; justify-content:space-between; align-items:center; cursor:grab;">
-                            <i class="fa-solid fa-grip-vertical" style="color:#a0aec0; margin-right:15px;"></i>
+                            <div style="display:flex; align-items:center;">
+                                <i class="fa-solid fa-grip-vertical" style="color:#a0aec0; margin-right:15px;"></i>
+                                <?php if(!empty($item['icon'])): ?>
+                                    <i class="<?= htmlspecialchars($item['icon']) ?>" style="margin-right: 15px; color: #4a5568; width: 20px; text-align: center;"></i>
+                                <?php endif; ?>
+                            </div>
                             <div style="flex:1;">
                                 <div style="font-weight:600; color:#2d3748;"><?= htmlspecialchars($item['label']) ?></div>
                                 <div style="font-size:0.8rem; color:#718096; margin-top:2px;">
@@ -131,6 +151,19 @@ include 'header.php';
 
     </div>
 </div>
+
+<datalist id="fa-icons">
+    <option value="fa-solid fa-house">
+    <option value="fa-solid fa-user">
+    <option value="fa-solid fa-gear">
+    <option value="fa-solid fa-envelope">
+    <option value="fa-solid fa-magnifying-glass">
+    <option value="fa-solid fa-right-to-bracket">
+    <option value="fa-solid fa-bars">
+    <option value="fa-brands fa-facebook">
+    <option value="fa-brands fa-instagram">
+    <option value="fa-brands fa-twitter">
+</datalist>
 
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
 <script>

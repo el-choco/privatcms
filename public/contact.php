@@ -98,6 +98,7 @@ $languages = [
   <title><?= htmlspecialchars($t['contact_title']) ?> - <?= htmlspecialchars($settings['blog_title'] ?? 'PiperBlog') ?></title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <link rel="icon" type="image/x-icon" href="/favicon.ico">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
   <link href="/assets/styles/main.css" rel="stylesheet">
   <style>
     :root {
@@ -150,30 +151,7 @@ $languages = [
   </style>
 </head>
 <body>
-  <header class="site-header">
-    <div class="header-container">
-      <a href="/" class="site-title"><?= htmlspecialchars($settings['blog_title'] ?? 'PiperBlog') ?></a>
-      <div class="header-actions">
-        <a href="/" class="btn-nav"><?= htmlspecialchars($t['nav_home']) ?></a>
-        <div class="lang-dropdown" id="langDropdown">
-            <div class="lang-trigger" onclick="toggleLang()">
-                <img src="<?= $languages[$currentLang]['flag'] ?>" alt="<?= $currentLang ?>">
-                <span><?= strtoupper($currentLang) ?></span>
-                <span style="font-size: 10px;">▼</span>
-            </div>
-            <div class="lang-menu" id="langMenu">
-                <?php foreach($languages as $code => $data): ?>
-                    <a href="?lang=<?= $code ?>" class="lang-option"><img src="<?= $data['flag'] ?>"> <?= $data['label'] ?></a>
-                <?php endforeach; ?>
-            </div>
-        </div>
-        <?php if (($settings['dark_mode_enabled'] ?? '0') === '1'): ?>
-            <button id="theme-toggle" class="theme-toggle" aria-label="<?= htmlspecialchars($t['toggle_theme']) ?>">🌓</button>
-        <?php endif; ?>
-        <a href="/admin/" class="btn-admin"><?= htmlspecialchars($t['admin']) ?></a>
-      </div>
-    </div>
-  </header>
+  <?php include 'header.php'; ?>
 
   <main class="container">
     <div class="contact-card">
@@ -210,16 +188,7 @@ $languages = [
     </div>
   </main>
 
-  <footer style="text-align: center; padding: 40px 20px; color: var(--text-muted); font-size: 0.9rem; margin-top: 50px; border-top: 1px solid var(--border);">
-    <div style="margin-bottom: 10px;">
-        &copy; <?= date('Y') ?> <?= htmlspecialchars($settings['blog_title'] ?? 'PiperBlog') ?>
-    </div>
-    <div>
-        📊 <?= htmlspecialchars($t['footer_total']) ?>: <strong><?= number_format($totalViews) ?></strong>
-        &bull; 
-        📅 <?= htmlspecialchars($t['footer_today']) ?>: <strong><?= number_format($todayViews) ?></strong>
-    </div>
-  </footer>
+  <?php include 'footer.php'; ?>
 
   <button id="backToTop" title="Nach oben">↑</button>
 

@@ -73,6 +73,7 @@ foreach ($allBoards as $b) {
 .forum-stats { text-align: right; min-width: 140px; font-size: 0.85rem; color: var(--text-muted); display: flex; flex-direction: column; gap: 2px; }
 .badge-count { background: #edf2f7; color: #4a5568; padding: 2px 8px; border-radius: 12px; font-weight: 600; font-size: 0.75rem; margin-right: 5px; }
 [data-theme="dark"] .badge-count { background: #2d3748; color: #cbd5e0; }
+:not(pre) > code{background-color:#23241f;color:#f8f8f2;padding:2px 6px;border-radius:4px;font-family:'Fira Code',Consolas,monospace;font-size:.9em;border:1px solid #3e3d32}
 </style>
 </head>
 <body>
