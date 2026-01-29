@@ -19,6 +19,7 @@ class BackupService {
         if (!is_dir($this->backupDir)) mkdir($this->backupDir, 0775, true);
     }
 
+
     public function createFullBackup(): string {
         if (!extension_loaded('zip')) throw new Exception("Zip-Modul fehlt.");
         $filename = 'full_backup_' . date('Y-m-d_H-i-s') . '.zip';
@@ -60,6 +61,47 @@ class BackupService {
         }
         $zip->close();
         return $path;
+    }
+
+
+    public function restoreBackup(string $filePath): void {
+        $zip = new ZipArchive();
+        if ($zip->open($filePath) !== true) throw new Exception("Konnte ZIP-Datei nicht öffnen.");
+
+        $sql = $zip->getFromName('database.sql');
+        if (!$sql) {
+            $zip->close();
+            throw new Exception("Fehler: database.sql nicht im Backup gefunden.");
+        }
+
+        try {
+            $this->pdo->exec("SET FOREIGN_KEY_CHECKS = 0");
+            $this->pdo->exec($sql);
+            $this->pdo->exec("SET FOREIGN_KEY_CHECKS = 1");
+        } catch (Exception $e) {
+            $zip->close();
+            throw new Exception("Datenbank-Import fehlgeschlagen: " . $e->getMessage());
+        }
+
+        for ($i = 0; $i < $zip->numFiles; $i++) {
+            $entry = $zip->getNameIndex($i);
+            if (str_starts_with($entry, 'uploads/') && !str_ends_with($entry, '/')) {
+                $fileName = basename($entry);
+                $targetPath = $this->uploadDir . $fileName;
+                
+                $content = $zip->getFromIndex($i);
+                if ($content !== false) {
+                    file_put_contents($targetPath, $content);
+                }
+            }
+        }
+
+        $zip->close();
+    }
+    
+    public function delete(string $filename): bool {
+        $path = $this->backupDir . basename($filename);
+        return file_exists($path) && unlink($path);
     }
 
     public function getList(): array {

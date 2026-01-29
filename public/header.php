@@ -38,7 +38,7 @@ input:checked + .slider:before{transform:translateX(30px);content:"\f186";color:
 
 <header class="site-header">
     <div class="header-container">
-      <a href="/" class="site-title"><?= htmlspecialchars($settings['blog_title'] ?? 'PiperBlog') ?></a>
+      <a href="/" class="site-title"><?= htmlspecialchars($settings['blog_title'] ?? 'PrivatCMS') ?></a>
       <div class="header-actions">
         
         <?php if (!empty($menuLinks)): ?>
