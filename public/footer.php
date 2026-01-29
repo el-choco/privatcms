@@ -1,8 +1,25 @@
 <?php
+if (session_status() === PHP_SESSION_NONE) session_start();
+
+if (!isset($settings)) $settings = [];
+if (!isset($t)) $t = [];
+if (!isset($iniLang)) $iniLang = [];
+
+$txtTotal = $t['footer_total'] ?? ($iniLang['frontend']['footer_stats_total'] ?? 'Total Visits');
+$txtToday = $t['footer_today'] ?? ($iniLang['frontend']['footer_stats_today'] ?? 'Today');
+$blogTitle = $settings['blog_title'] ?? 'PiperBlog';
+
+$totalViews = 0;
+$todayViews = 0;
+
 if (isset($pdo)) {
     try {
         $footerPages = $pdo->query("SELECT title, slug FROM pages WHERE status='published' AND show_in_footer=1 ORDER BY title ASC")->fetchAll();
+        $totalViews = (int)$pdo->query("SELECT SUM(views) FROM daily_stats")->fetchColumn();
+        $todayViews = (int)$pdo->query("SELECT views FROM daily_stats WHERE date = CURDATE()")->fetchColumn();
     } catch (Exception $e) { $footerPages = []; }
+} else {
+    $footerPages = [];
 }
 ?>
 <footer style="text-align: center; padding: 40px 20px; color: var(--text-muted); font-size: 0.9rem; margin-top: 50px; border-top: 1px solid var(--border);">
@@ -18,12 +35,12 @@ if (isset($pdo)) {
     <?php endif; ?>
 
     <div style="margin-bottom: 10px;">
-        &copy; <?= date('Y') ?> <?= htmlspecialchars($settings['blog_title'] ?? 'PiperBlog') ?>
+        &copy; <?= date('Y') ?> <?= htmlspecialchars($blogTitle) ?>
     </div>
     <div>
-        📊 <?= htmlspecialchars($t['footer_total']) ?>: <strong><?= number_format($totalViews ?? 0) ?></strong>
+        📊 <?= htmlspecialchars($txtTotal) ?>: <strong><?= number_format($totalViews) ?></strong>
         &bull; 
-        📅 <?= htmlspecialchars($t['footer_today']) ?>: <strong><?= number_format($todayViews ?? 0) ?></strong>
+        📅 <?= htmlspecialchars($txtToday) ?>: <strong><?= number_format($todayViews) ?></strong>
     </div>
 </footer>
 <?php
@@ -43,11 +60,7 @@ $cLink   = $t['cookie_link']   ?? ($iniLang['cookie']['link']   ?? '#');
 <link href="/assets/styles/cookie.css" rel="stylesheet">
 
 <div id="cookieBanner" class="cookie-banner">
-    <div class="cookie-content">
-        <?= htmlspecialchars($cText) ?>
-        <a href="<?= htmlspecialchars($cLink) ?>" class="cookie-link"><?= htmlspecialchars($cMore) ?></a>
-    </div>
-    <button id="cookieAccept" class="cookie-btn"><?= htmlspecialchars($cAccept) ?></button>
+    <p><?= htmlspecialchars($cText) ?> <a href="<?= htmlspecialchars($cLink) ?>" style="color:var(--primary);"><?= htmlspecialchars($cMore) ?></a></p>
+    <button id="acceptCookies" class="btn-cookie"><?= htmlspecialchars($cAccept) ?></button>
 </div>
-
 <script src="/assets/js/cookie.js"></script>
