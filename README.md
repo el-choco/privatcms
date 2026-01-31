@@ -2,7 +2,7 @@
 >
 > ## [Lisez-moi en français!](https://github.com/el-choco/privatcms?tab=readme-ov-file#-privatcms-3)
 >
-> ## [ReadMe en español!](https://github.com/el-choco/privatcms#-privatcms-2)
+> ## [ReadMe en español!](https://github.com/el-choco/privatcms?tab=readme-ov-file#-privatcms-2)
 
 ---
 
