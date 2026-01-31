@@ -71,11 +71,6 @@ else
   echo "[!] Attention : Fichier de schéma introuvable. Importation ignorée."
 fi
 
-echo "[*] Définition/Mise à jour du mot de passe Admin..."
-HASH="$($COMPOSE exec -T web php -r 'echo password_hash(getenv("P"), PASSWORD_BCRYPT);' P="$ADMIN_PASSWORD")"
-SQL="INSERT INTO users (username, password_hash, role) VALUES ('admin', '${HASH}', 'admin') ON DUPLICATE KEY UPDATE password_hash='${HASH}';"
-$COMPOSE exec -T db mysql -u"$MYSQL_USER" -p"$MYSQL_PASSWORD" -e "$SQL" "$MYSQL_DATABASE"
-
 echo "[*] Optimisation des permissions dans le conteneur web..."
 
 $COMPOSE exec -T web chown -R www-data:www-data /var/www/html/public/uploads
@@ -94,4 +89,5 @@ echo "Frontend :     ${APP_URL}"
 echo "Admin :        ${APP_URL}/admin/login.php"
 echo "Utilisateur :  admin"
 echo "Mot de passe : ${ADMIN_PASSWORD}"
+
 echo "-------------------------------------------------------"

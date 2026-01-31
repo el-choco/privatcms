@@ -4,6 +4,7 @@ if (session_status() === PHP_SESSION_NONE) session_start();
 if (!isset($settings)) $settings = [];
 if (!isset($t)) $t = [];
 if (!isset($currentLang)) $currentLang = 'de';
+
 if (!isset($languages)) $languages = [
     'de' => ['label' => 'Deutsch',  'flag' => 'https://flagcdn.com/w40/de.png'],
     'en' => ['label' => 'English',  'flag' => 'https://flagcdn.com/w40/gb.png'],
@@ -11,11 +12,14 @@ if (!isset($languages)) $languages = [
     'es' => ['label' => 'Español',  'flag' => 'https://flagcdn.com/w40/es.png']
 ];
 
+if (!isset($iniLang)) $iniLang = [];
+
 $l_forum   = $iniLang['forum']['title'] ?? 'Forum';
 $l_login   = $iniLang['auth']['btn_login'] ?? 'Login';
 $l_logout  = $iniLang['auth']['logout'] ?? 'Logout';
-$l_profile = $iniLang['profile']['title'] ?? 'Profile';
+$l_profile = $iniLang['profile']['title'] ?? 'Profil';
 $l_admin   = $t['admin'] ?? 'Admin';
+$l_contact = $iniLang['frontend']['nav_contact'] ?? ($iniLang['nav']['contact'] ?? 'Kontakt');
 
 $menuLinks = [];
 if (isset($pdo)) {
@@ -34,11 +38,13 @@ $isLoggedIn = !empty($_SESSION['user_id']);
 .slider{position:absolute;cursor:pointer;top:0;left:0;right:0;bottom:0;background-color: rgba(255, 255, 255, 0.2);transition:.4s;border-radius:34px}
 .slider:before{position:absolute;content:"\f185";font-family:"Font Awesome 6 Free";font-weight:900;height:22px;width:22px;left:4px;bottom:4px;background-color:#fff;transition:.4s;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:15px;color:#FFD43B}
 input:checked + .slider{background-color:rgba(255, 255, 255, 0.2);}
-input:checked + .slider:before{transform:translateX(30px);content:"\f186";color:#4a5568}</style>
+input:checked + .slider:before{transform:translateX(30px);content:"\f186";color:#4a5568}
+</style>
 
 <header class="site-header">
     <div class="header-container">
       <a href="/" class="site-title"><?= htmlspecialchars($settings['blog_title'] ?? 'PrivatCMS') ?></a>
+      
       <div class="header-actions">
         
         <?php if (!empty($menuLinks)): ?>
@@ -51,8 +57,9 @@ input:checked + .slider:before{transform:translateX(30px);content:"\f186";color:
                 </a>
             <?php endforeach; ?>
         <?php else: ?>
-            <a href="/" class="btn-nav">Home</a>
-            <a href="/contact.php" class="btn-nav">Contact</a>
+            <a href="/contact.php" class="btn-nav">
+                <i class="fa-solid fa-envelope" style="margin-right: 5px;"></i> <?= htmlspecialchars($l_contact) ?>
+            </a>
         <?php endif; ?>
         
         <a href="/forum.php" class="btn-nav">

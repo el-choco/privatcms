@@ -11,8 +11,9 @@ CREATE TABLE IF NOT EXISTS users (
 );
 
 -- Default Admin (User: admin, Pass: admin123)
+-- Hash vom User generiert (valid for admin123)
 INSERT INTO users (username, password_hash, email, role)
-VALUES ('admin', '$2y$10$vI8aWBnW3fID.ZQ4/zo1G.q1lRps.9cGLcZEiGDMVr5yUP1KUOYTa', 'admin@example.com', 'admin')
+VALUES ('admin', '$2y$10$wc/wBLIE0xr1GgogogTQp.b6siZzwaEzNoDpj0h6IBpni6g8jCA3e', 'admin@example.com', 'admin')
 ON DUPLICATE KEY UPDATE password_hash=VALUES(password_hash), email=VALUES(email), role=VALUES(role);
 
 -- Table: Categories
@@ -51,14 +52,14 @@ CREATE TABLE IF NOT EXISTS posts (
 CREATE TABLE IF NOT EXISTS comments (
   id INT AUTO_INCREMENT PRIMARY KEY,
   post_id INT NOT NULL,
-  parent_id INT DEFAULT NULL, -- UPDATE: Added parent_id
+  parent_id INT DEFAULT NULL,
   author_name VARCHAR(128),
   author_email VARCHAR(128),
   content TEXT NOT NULL,
   status ENUM('pending','approved','spam','deleted') DEFAULT 'pending',
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (post_id) REFERENCES posts(id),
-  FOREIGN KEY (parent_id) REFERENCES comments(id) ON DELETE CASCADE -- UPDATE: Added Self-Reference FK
+  FOREIGN KEY (parent_id) REFERENCES comments(id) ON DELETE CASCADE
 );
 
 -- Table: Files
@@ -143,7 +144,7 @@ START TRANSACTION;
 
 -- Default Settings
 INSERT IGNORE INTO settings (setting_key, setting_value) VALUES 
-  ('blog_title', 'PiperBlog'),
+  ('blog_title', 'PrivatCMS'),
   ('blog_description', 'Ein einfacher Blog'),
   ('posts_per_page', '10'),
   ('debug_mode', '0'),

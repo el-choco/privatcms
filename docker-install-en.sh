@@ -71,11 +71,6 @@ else
   echo "[!] Warning: Schema file not found. Skipping import."
 fi
 
-echo "[*] Setting/Updating Admin password..."
-HASH="$($COMPOSE exec -T web php -r 'echo password_hash(getenv("P"), PASSWORD_BCRYPT);' P="$ADMIN_PASSWORD")"
-SQL="INSERT INTO users (username, password_hash, role) VALUES ('admin', '${HASH}', 'admin') ON DUPLICATE KEY UPDATE password_hash='${HASH}';"
-$COMPOSE exec -T db mysql -u"$MYSQL_USER" -p"$MYSQL_PASSWORD" -e "$SQL" "$MYSQL_DATABASE"
-
 echo "[*] Optimizing permissions in web container..."
 
 $COMPOSE exec -T web chown -R www-data:www-data /var/www/html/public/uploads
@@ -94,4 +89,5 @@ echo "Frontend: ${APP_URL}"
 echo "Admin:    ${APP_URL}/admin/login.php"
 echo "User:     admin"
 echo "Password: ${ADMIN_PASSWORD}"
+
 echo "-------------------------------------------------------"

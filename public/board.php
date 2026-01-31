@@ -172,7 +172,7 @@ usort($allFiles, function($a, $b) use ($uploadDir) { return filemtime($uploadDir
     [data-theme="dark"] .badge-count { background: #2d3748; color: #cbd5e0; }
     [data-theme="dark"] .editor-container { background: #2d3748; border-color: #4a5568; }
     [data-theme="dark"] .editor-toolbar { background: #1a202c; border-bottom-color: #4a5568; }
-    [data-theme="dark"] .ed-btn { background: #2d3748; border-color: #4a5568; color: #e2e8f0; }
+    [data-theme="dark"] .ed-btn { background: #2d3748; border-color: #4a5568; color: #1877f2; }
     [data-theme="dark"] .ed-btn:hover { background: #4a5568; color: #fff; }
     [data-theme="dark"] .ed-sep { background: #4a5568; }
     [data-theme="dark"] .editor-area textarea { background: #2d3748; color: #e2e8f0; }
@@ -591,4 +591,5 @@ include 'footer.php';
     });
 </script>
 </body>
+
 </html>

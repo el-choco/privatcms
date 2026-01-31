@@ -6,6 +6,14 @@ require_once __DIR__ . '/../src/App/Database.php';
 $ini = parse_ini_file(__DIR__ . '/../config/config.ini', true, INI_SCANNER_TYPED) ?: [];
 $pdo = (new App\Database($ini['database'] ?? []))->pdo();
 
+$settings = [];
+try {
+    $stmtSettings = $pdo->query("SELECT * FROM settings");
+    while ($row = $stmtSettings->fetch()) {
+        $settings[$row['setting_key']] = $row['setting_value'];
+    }
+} catch (Exception $e) {}
+
 $currentLang = $_SESSION['lang'] ?? 'de';
 $langFile = __DIR__ . '/../config/lang/' . $currentLang . '.ini';
 $iniLang = file_exists($langFile) ? parse_ini_file($langFile, true) : [];
@@ -162,12 +170,6 @@ function getAvatarProfile($u) {
 <?php include 'header.php'; ?>
 
 <main class="container">
-    <div class="breadcrumb">
-        <a href="/forum.php"><i class="fa-solid fa-arrow-left"></i> <?= htmlspecialchars($fLang['title'] ?? 'Forum') ?></a> 
-        <span>/</span>
-        <span><?= htmlspecialchars($pLang['title'] ?? 'My Profile') ?></span>
-    </div>
-
     <div class="profile-card">
         
         <form method="POST" enctype="multipart/form-data">
