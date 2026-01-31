@@ -1,3 +1,10 @@
+## **Deutsche ReadMe weiter unten!!**
+## **Lisez le fichier Lisez-moi en français ci-dessous !**
+## **¡El archivo ReadMe en español se encuentra abajo!**
+
+---
+---
+
 # 🥧 PrivatCMS
 
 > **The leap from blog to CMS is accomplished.**
